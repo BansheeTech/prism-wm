@@ -1,0 +1,11 @@
+{
+  // The build config emits, so it pins rootDir to src and cannot see the tests.
+  // This one only checks, so it drops both and takes everything.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "outDir": null
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

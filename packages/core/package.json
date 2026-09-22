@@ -1,0 +1,54 @@
+{
+  "name": "@prism-wm/core",
+  "version": "1.0.0",
+  "description": "Framework-agnostic core of the Prism Window Manager: state store, geometry, RAM manager. No DOM rendering.",
+  "license": "AGPL-3.0-or-later",
+  "author": "Banshee Technologies S.L.",
+  "contributors": [
+    {
+      "name": "Claudio González",
+      "url": "https://github.com/SurceBeats"
+    },
+    {
+      "name": "Néstor González",
+      "url": "https://github.com/Anghios"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BansheeTech/prism-wm.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/BansheeTech/prism-wm#readme",
+  "bugs": {
+    "url": "https://github.com/BansheeTech/prism-wm/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
+    "test": "vitest run",
+    "prepack": "pnpm run build && cp ../../LICENSE ."
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

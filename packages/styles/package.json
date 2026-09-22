@@ -1,0 +1,43 @@
+{
+  "name": "@prism-wm/styles",
+  "version": "1.0.0",
+  "description": "Base stylesheet for the Prism Window Manager. Themeable via --pwm-* CSS custom properties.",
+  "license": "AGPL-3.0-or-later",
+  "author": "Banshee Technologies S.L.",
+  "contributors": [
+    {
+      "name": "Claudio González",
+      "url": "https://github.com/SurceBeats"
+    },
+    {
+      "name": "Néstor González",
+      "url": "https://github.com/Anghios"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BansheeTech/prism-wm.git",
+    "directory": "packages/styles"
+  },
+  "homepage": "https://github.com/BansheeTech/prism-wm#readme",
+  "bugs": {
+    "url": "https://github.com/BansheeTech/prism-wm/issues"
+  },
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./prism.css": "./src/prism.css",
+    "./prism-structure.css": "./src/prism-structure.css",
+    "./prism-theme.css": "./src/prism-theme.css"
+  },
+  "scripts": {
+    "build": "echo 'no build step (plain CSS)'",
+    "typecheck": "echo 'no types'",
+    "test": "echo 'no tests'",
+    "prepack": "cp ../../LICENSE ."
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

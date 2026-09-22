@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    // Overrides the workspace's "Bundler" default. core is the one package
+    // emitted file-per-module by plain tsc (the others are bundled), so its
+    // dist is what Node actually resolves. NodeNext makes TypeScript *enforce*
+    // explicit ".js" specifiers — without it tsc happily emits extensionless
+    // imports that every bundler accepts and Node ESM rejects.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "include": ["src/**/*"]
+}

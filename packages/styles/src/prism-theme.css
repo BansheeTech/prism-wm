@@ -1,0 +1,185 @@
+/*
+ * Prism Window Manager (@prism-wm), default theme
+ * Copyright (C) 2023-2026 Banshee Technologies S.L.
+ * Authors: Claudio González, Néstor González
+ * https://www.banshee.pro/
+ *
+ * Extracted from HomeDock OS: https://github.com/BansheeTech/HomeDockOS
+ *
+ * @license AGPL-3.0-or-later
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+:root {
+  --pwm-window-bg: rgba(28, 28, 30, 0.72);
+  --pwm-window-border: rgba(255, 255, 255, 0.08);
+  --pwm-window-border-focused: rgba(59, 130, 246, 0.5);
+  --pwm-window-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  --pwm-window-shadow-active: 0 8px 32px rgba(59, 130, 246, 0.2), 0 0 0 1px rgba(59, 130, 246, 0.3);
+  --pwm-window-blur: blur(40px) saturate(180%);
+  --pwm-icon-bg: rgba(255, 255, 255, 0.06);
+  --pwm-icon-bg-focused: rgba(255, 255, 255, 0.12);
+  --pwm-titlebar-bg: rgba(255, 255, 255, 0.04);
+  --pwm-titlebar-border: rgba(255, 255, 255, 0.06);
+  --pwm-title-text: rgba(235, 235, 245, 0.6);
+  --pwm-title-text-focused: rgba(255, 255, 255, 0.95);
+  --pwm-button-text: rgba(235, 235, 245, 0.6);
+  --pwm-button-text-hover: #fff;
+  /* Blue on maximize, to mirror the red on close: */
+  --pwm-button-bg-hover: rgba(59, 130, 246, 0.9);
+  /* Minimize keeps the neutral wash; see the rule below. */
+  --pwm-minimize-bg-hover: rgba(255, 255, 255, 0.1);
+  --pwm-close-bg-hover: rgba(239, 68, 68, 0.9);
+  --pwm-close-text-hover: #fff;
+  --pwm-snap-accent: rgba(59, 130, 246, 0.5);
+  --pwm-snap-accent-pulse: rgba(59, 130, 246, 0.7);
+  --pwm-snap-bg: rgba(59, 130, 246, 0.2);
+  --pwm-snap-blur: blur(12px);
+}
+
+/* ---- Window ----------------------------------------------------------- */
+
+.pwm-window {
+  background: var(--pwm-window-bg);
+  border: 1px solid var(--pwm-window-border);
+  box-shadow: var(--pwm-window-shadow);
+  backdrop-filter: var(--pwm-window-blur);
+  -webkit-backdrop-filter: var(--pwm-window-blur);
+}
+
+.pwm-window.pwm-active {
+  border-color: var(--pwm-window-border-focused);
+  box-shadow: var(--pwm-window-shadow-active);
+}
+
+.pwm-window.pwm-maximized {
+  border: none;
+  box-shadow: none;
+}
+
+.pwm-window.pwm-fullscreen-mobile {
+  border: none !important;
+}
+
+/* ---- Header ----------------------------------------------------------- */
+
+.pwm-window-header {
+  background: var(--pwm-titlebar-bg);
+  border-bottom: 1px solid var(--pwm-titlebar-border);
+}
+
+.pwm-window-title {
+  color: var(--pwm-title-text);
+}
+.pwm-window.pwm-active .pwm-window-title {
+  color: var(--pwm-title-text-focused);
+}
+
+/* The icon well needs its own colour: */
+.pwm-window-icon-container {
+  background: var(--pwm-icon-bg);
+  color: var(--pwm-title-text);
+}
+.pwm-window.pwm-active .pwm-window-icon-container {
+  background: var(--pwm-icon-bg-focused);
+  color: var(--pwm-title-text-focused);
+}
+
+.pwm-window-control {
+  color: var(--pwm-button-text);
+}
+/* Scoped away from cupertino: */
+.pwm-window:not(.pwm-cupertino) .pwm-window-control:hover {
+  background: var(--pwm-button-bg-hover);
+  color: var(--pwm-button-text-hover);
+}
+/* Minimize stays neutral. */
+.pwm-window:not(.pwm-cupertino) .pwm-window-control.pwm-minimize:hover {
+  background: var(--pwm-minimize-bg-hover);
+}
+.pwm-window:not(.pwm-cupertino) .pwm-window-control.pwm-close:hover {
+  background: var(--pwm-close-bg-hover);
+  color: var(--pwm-close-text-hover);
+}
+
+/* ---- Cupertino traffic lights ----------------------------------------- */
+/* * The paint half of the cupertino appearance; */
+:root {
+  --pwm-traffic-close: #ff5f57;
+  --pwm-traffic-minimize: #febc2e;
+  --pwm-traffic-maximize: #28c840;
+  /* Unfocused windows grey their lights out, which is what shows the focus. */
+  --pwm-traffic-inactive: #4a4a4a;
+  --pwm-traffic-glyph: rgba(0, 0, 0, 0.75);
+}
+
+.pwm-window.pwm-cupertino .pwm-window-control {
+  background: var(--pwm-traffic-inactive);
+  color: var(--pwm-traffic-glyph);
+}
+.pwm-window.pwm-cupertino.pwm-active .pwm-window-control.pwm-close {
+  background: var(--pwm-traffic-close);
+}
+.pwm-window.pwm-cupertino.pwm-active .pwm-window-control.pwm-minimize {
+  background: var(--pwm-traffic-minimize);
+}
+.pwm-window.pwm-cupertino.pwm-active .pwm-window-control.pwm-maximize {
+  background: var(--pwm-traffic-maximize);
+}
+
+/* ---- Dialog blockers --------------------------------------------------- */
+
+:root {
+  --pwm-scrim: rgba(0, 0, 0, 0.45);
+  --pwm-scrim-blur: blur(2px);
+}
+
+.pwm-scrim,
+.pwm-window[data-pwm-blocked]::after {
+  background: var(--pwm-scrim);
+  backdrop-filter: var(--pwm-scrim-blur);
+  -webkit-backdrop-filter: var(--pwm-scrim-blur);
+}
+
+/* ---- Snap preview ----------------------------------------------------- */
+
+.pwm-snap-preview {
+  background: var(--pwm-snap-bg);
+  backdrop-filter: var(--pwm-snap-blur);
+  -webkit-backdrop-filter: var(--pwm-snap-blur);
+  box-shadow: inset 0 0 0 2px var(--pwm-snap-accent);
+  /* `animation` is a shorthand, so both must be listed or the entrance is lost. */
+  animation:
+    pwm-snap-in 0.2s ease,
+    pwm-snap-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pwm-snap-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px var(--pwm-snap-accent);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--pwm-snap-accent-pulse);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwm-snap-preview {
+    animation: none;
+  }
+}

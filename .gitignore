@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.svelte-kit/
+*.tsbuildinfo
+.DS_Store
+.turbo/
+coverage/
+*.log
+.vscode/
+.idea/
+
+*.tgz

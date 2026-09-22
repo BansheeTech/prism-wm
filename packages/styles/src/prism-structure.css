@@ -1,0 +1,616 @@
+/*
+ * Prism Window Manager (@prism-wm), structural stylesheet
+ * Copyright (C) 2023-2026 Banshee Technologies S.L.
+ * Authors: Claudio González, Néstor González
+ * https://www.banshee.pro/
+ *
+ * Extracted from HomeDock OS: https://github.com/BansheeTech/HomeDockOS
+ *
+ * @license AGPL-3.0-or-later
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+:root {
+  --pwm-window-radius: 12px;
+  /* Room reserved for the controls, so a long title truncates instead of sliding under. */
+  --pwm-controls-reserve: 7rem;
+  --pwm-manager-z: 100;
+  /* 10000, above where hosts park their own overlays. */
+  --pwm-modal-z: 10000;
+  --pwm-taskbar-height: 0px;
+}
+
+/* ---- Manager layer ---------------------------------------------------- */
+
+.pwm-manager {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--pwm-manager-z);
+}
+.pwm-manager > * {
+  pointer-events: auto;
+}
+
+/* Only app-modal dialogs render here; the others stay among the windows. */
+.pwm-modal-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--pwm-modal-z);
+}
+.pwm-modal-layer > * {
+  pointer-events: auto;
+}
+
+/* ---- Window ----------------------------------------------------------- */
+
+.pwm-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--pwm-window-radius);
+  overflow: hidden;
+  contain: layout style paint;
+  transform-origin: bottom center;
+}
+
+/* The entrance must stay on a class the adapter drops, never on .pwm-window. */
+.pwm-window.pwm-opening,
+.pwm-window.pwm-restoring {
+  animation: pwm-window-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Only the offset half, so the browser interpolates against the computed style. */
+@keyframes pwm-window-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(100px);
+  }
+}
+
+.pwm-window.pwm-closing,
+.pwm-window.pwm-minimizing {
+  animation: pwm-window-out 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes pwm-window-out {
+  to {
+    opacity: 0;
+    transform: scale(0.3) translateY(200px);
+  }
+}
+
+/* A dialog fades; a window flies. 200ms either way, matching the store. */
+.pwm-window.pwm-dialog.pwm-opening {
+  animation: pwm-dialog-in 0.2s ease-out;
+}
+
+@keyframes pwm-dialog-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.pwm-window.pwm-dialog.pwm-closing {
+  animation: pwm-dialog-out 0.2s ease-in forwards;
+}
+
+@keyframes pwm-dialog-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Excludes the exit states, or two clocks drive the same window. */
+.pwm-window:not(.pwm-dragging):not(.pwm-resizing):not(.pwm-closing):not(.pwm-minimizing) {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pwm-window.pwm-dragging,
+.pwm-window.pwm-resizing {
+  transition: none !important;
+  user-select: none !important;
+  backface-visibility: hidden;
+  isolation: isolate;
+}
+.pwm-window.pwm-dragging *,
+.pwm-window.pwm-resizing * {
+  transition: none !important;
+  user-select: none !important;
+}
+
+.pwm-manager:has(.pwm-dragging, .pwm-resizing) iframe,
+.pwm-modal-layer:has(.pwm-dragging, .pwm-resizing) iframe {
+  pointer-events: none;
+}
+/* Excluded for content-sized windows: `contain: strict` would collapse them. */
+.pwm-window.pwm-dragging:not([data-pwm-autoheight]) .pwm-window-body,
+.pwm-window.pwm-resizing:not([data-pwm-autoheight]) .pwm-window-body {
+  contain: strict;
+  content-visibility: auto;
+}
+
+/* A FLIP: top/left stay instant so the window keeps tracking the pointer. */
+.pwm-window.pwm-unsnapping {
+  transform-origin: 0 0;
+  will-change: transform;
+  animation: pwm-unsnap 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pwm-unsnap {
+  from {
+    transform: var(--pwm-unsnap-from);
+  }
+}
+
+/* The window's scale would stretch the content with it, so the body scales by the inverse: */
+.pwm-window.pwm-unsnapping .pwm-window-body {
+  transform-origin: 0 0;
+  will-change: transform;
+  animation: pwm-unsnap-content 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pwm-unsnap-content {
+  from {
+    transform: var(--pwm-unsnap-from-content);
+  }
+}
+
+.pwm-window.pwm-maximized {
+  border-radius: 0;
+}
+
+.pwm-window.pwm-fullscreen-mobile {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  border-radius: 0 !important;
+  max-width: 100vw !important;
+}
+
+.pwm-window.pwm-dialog {
+  max-width: calc(100% - 32px);
+}
+
+/* ---- Header ----------------------------------------------------------- */
+
+/* Do not move the handlers onto the header: pressing ✕ would start a drag. */
+.pwm-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  /* Uniform: */
+  padding: 0.75rem;
+  position: relative;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.pwm-window-header-draggable {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 var(--pwm-controls-reserve) 0 0.75rem;
+  min-width: 0;
+  cursor: move;
+  touch-action: none;
+}
+
+.pwm-window.pwm-maximized .pwm-window-header-draggable,
+.pwm-window.pwm-fullscreen-mobile .pwm-window-header-draggable {
+  cursor: default;
+}
+
+.pwm-window-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* ---- Cupertino chrome --------------------------------------------------- */
+
+/* Geometry only; the control order is set in the DOM by the adapters. */
+/* Centres icon and title over the window, not over what the controls left. */
+/* 36px against redmond's 52px: the two desktops disagree, so matching looks wrong. */
+.pwm-window.pwm-cupertino .pwm-window-header {
+  justify-content: flex-start;
+  padding: 0.5rem 0.75rem;
+}
+
+.pwm-window.pwm-cupertino .pwm-window-header-draggable {
+  justify-content: center;
+  /* Keeps a long title clear of the traffic lights before it truncates. */
+  padding: 0 5.5rem;
+}
+
+/* Sized to content so the icon and title centre as a unit. */
+.pwm-window.pwm-cupertino .pwm-window-title {
+  flex: 0 1 auto;
+}
+
+/* A 24px icon leaves 6px of air in a 36px bar, which reads as crammed. */
+.pwm-window.pwm-cupertino .pwm-window-icon-container {
+  width: 18px;
+  height: 18px;
+}
+
+.pwm-window.pwm-cupertino .pwm-window-control {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pwm-window.pwm-cupertino .pwm-window-controls {
+  gap: 0.5rem;
+  /* Row height for this appearance; see the header rule above for the sums. */
+  min-height: 20px;
+}
+
+/* Glyphs appear only on hover over the cluster. */
+/* 10px, not 8. */
+.pwm-window.pwm-cupertino .pwm-window-control > * {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* 10px x 3/24 = 1.25px of actual ink. */
+.pwm-window.pwm-cupertino .pwm-window-control .pwm-fallback-icon {
+  stroke-width: 3;
+}
+.pwm-window.pwm-cupertino .pwm-window-controls:hover .pwm-window-control > *,
+.pwm-window.pwm-cupertino .pwm-window-control:focus-visible > * {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwm-window.pwm-cupertino .pwm-window-control > * {
+    transition: none;
+  }
+}
+
+.pwm-window-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pwm-window-controls {
+  display: flex;
+  /* Above the full-width drag strip, so the buttons stay clickable. */
+  position: relative;
+  z-index: 1;
+  /* Holds the bar open, and does it HERE rather than on the header: */
+  min-height: 28px;
+  /* Explicit, not left to the `stretch` default. */
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pwm-window-control {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  /* Only reaches hosts passing a text icon; the built-in glyphs are SVG. */
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* The package's own control glyphs. */
+.pwm-fallback-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* A 24px well, not a 32px button: it is an app mark, not a control. */
+.pwm-fallback-icon[data-glyph="window"] {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- Body ------------------------------------------------------------- */
+
+.pwm-window-body {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  container-type: inline-size;
+  container-name: window;
+}
+
+/* Where a <PrismDialog> renders its slot. */
+.pwm-window-slot {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Geometry only. `reversed` flips the row instead of duplicating the buttons. */
+.pwm-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  margin-top: auto;
+}
+
+.pwm-dialog-footer-reversed {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.pwm-dialog-btn {
+  cursor: pointer;
+  font: inherit;
+}
+
+.pwm-dialog-btn:disabled {
+  cursor: not-allowed;
+}
+
+.pwm-dialog-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pwm-dialog-spin 0.6s linear infinite;
+}
+
+@keyframes pwm-dialog-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwm-dialog-spinner {
+    animation: none;
+  }
+}
+
+/* Shown while the body has no component; a `loading` slot replaces it. */
+.pwm-window-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.pwm-loading-icon {
+  width: 64px;
+  height: 64px;
+  /* CSS rather than the SVG's own <animateTransform>: */
+  animation: pwm-spin 1.5s linear infinite;
+}
+
+@keyframes pwm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Dialogs ------------------------------------------------------------ */
+
+/* A dialog already has the chrome; all that is left here is the blocking. */
+.pwm-scrim {
+  position: fixed;
+  inset: 0;
+  animation: pwm-scrim-in 0.2s ease-out;
+}
+
+/* pointer-events: none, so it does not swallow a click while fading out. */
+.pwm-scrim.pwm-scrim-closing {
+  animation: pwm-scrim-out 0.2s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes pwm-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pwm-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Fixed width, automatic height. `height: auto` is !important to beat inline. */
+.pwm-window[data-pwm-autoheight] {
+  height: auto !important;
+  max-height: calc(100% - 2rem);
+}
+
+.pwm-window[data-pwm-blocked]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* A focus shift between two iframes fires no event in this document */
+.pwm-window:not(.pwm-active) .pwm-window-body:has(iframe)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* ---- Resize handles --------------------------------------------------- */
+
+.pwm-resize-handle {
+  position: absolute;
+  z-index: 10;
+  touch-action: none;
+}
+.pwm-resize-n,
+.pwm-resize-s {
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+.pwm-resize-n {
+  top: 0;
+}
+.pwm-resize-s {
+  bottom: 0;
+}
+.pwm-resize-e,
+.pwm-resize-w {
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.pwm-resize-e {
+  right: 0;
+}
+.pwm-resize-w {
+  left: 0;
+}
+.pwm-resize-ne,
+.pwm-resize-nw,
+.pwm-resize-se,
+.pwm-resize-sw {
+  width: 12px;
+  height: 12px;
+}
+.pwm-resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.pwm-resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.pwm-resize-se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+.pwm-resize-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+/* ---- Snap preview ----------------------------------------------------- */
+
+.pwm-snap-preview {
+  position: fixed;
+  top: 0;
+  width: 50%;
+  height: calc(100% - var(--pwm-taskbar-height));
+  border-radius: var(--pwm-window-radius);
+  pointer-events: none;
+  z-index: 99;
+  /* One-shot entrance (fade+scale). */
+  animation: pwm-snap-in 0.2s ease;
+}
+
+@keyframes pwm-snap-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+.pwm-snap-preview.pwm-snap-left {
+  left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.pwm-snap-preview.pwm-snap-right {
+  right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+@media (max-width: 768px) {
+  .pwm-window-header {
+    padding: 0.625rem 0.875rem;
+  }
+  .pwm-window-control {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  .pwm-fallback-icon {
+    width: 16px;
+    height: 16px;
+  }
+  .pwm-window-title {
+    font-size: 0.9375rem;
+  }
+}
+
+/* Respect users who ask for reduced motion: no entrance animations. */
+@media (prefers-reduced-motion: reduce) {
+  .pwm-window,
+  .pwm-window.pwm-opening,
+  .pwm-window.pwm-restoring,
+  .pwm-window.pwm-closing,
+  .pwm-window.pwm-minimizing,
+  .pwm-window.pwm-dialog.pwm-opening,
+  .pwm-window.pwm-dialog.pwm-closing,
+  .pwm-scrim,
+  .pwm-scrim.pwm-scrim-closing,
+  .pwm-snap-preview {
+    animation: none;
+  }
+  .pwm-window.pwm-unsnapping,
+  .pwm-window.pwm-unsnapping .pwm-window-body {
+    animation: none;
+  }
+  /* The arc stops mid-turn rather than vanishing: */
+  .pwm-loading-icon {
+    animation: none;
+  }
+}
