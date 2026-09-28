@@ -14,13 +14,13 @@ Extracted from [HomeDock OS](https://github.com/BansheeTech/HomeDockOS), which i
 
 ## Packages
 
-| Package            | What it is                                                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@prism-wm/core`   | Store, geometry and RAM manager. No DOM, no framework.                                                                         |
-| `@prism-wm/styles` | `prism-structure.css` (layout and motion) and `prism-theme.css` (colour, via `--pwm-*` custom properties). Import one or both. |
-| `@prism-wm/vue`    | Vue 3 adapter.                                                                                                                 |
-| `@prism-wm/react`  | React adapter.                                                                                                                 |
-| `@prism-wm/svelte` | Svelte adapter.                                                                                                                |
+| Package                                                              | Version                                                                                                                  | What it is                                                                                                                     |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| [`@prism-wm/core`](https://www.npmjs.com/package/@prism-wm/core)     | [![npm](https://img.shields.io/npm/v/@prism-wm/core?color=blue)](https://www.npmjs.com/package/@prism-wm/core)       | Store, geometry and RAM manager. No DOM, no framework.                                                                         |
+| [`@prism-wm/styles`](https://www.npmjs.com/package/@prism-wm/styles) | [![npm](https://img.shields.io/npm/v/@prism-wm/styles?color=blue)](https://www.npmjs.com/package/@prism-wm/styles)   | `prism-structure.css` (layout and motion) and `prism-theme.css` (colour, via `--pwm-*` custom properties). Import one or both. |
+| [`@prism-wm/vue`](https://www.npmjs.com/package/@prism-wm/vue)       | [![npm](https://img.shields.io/npm/v/@prism-wm/vue?color=blue)](https://www.npmjs.com/package/@prism-wm/vue)         | Vue 3 adapter.                                                                                                                 |
+| [`@prism-wm/react`](https://www.npmjs.com/package/@prism-wm/react)   | [![npm](https://img.shields.io/npm/v/@prism-wm/react?color=blue)](https://www.npmjs.com/package/@prism-wm/react)     | React adapter.                                                                                                                 |
+| [`@prism-wm/svelte`](https://www.npmjs.com/package/@prism-wm/svelte) | [![npm](https://img.shields.io/npm/v/@prism-wm/svelte?color=blue)](https://www.npmjs.com/package/@prism-wm/svelte)   | Svelte adapter.                                                                                                                |
 
 ## Install
 
