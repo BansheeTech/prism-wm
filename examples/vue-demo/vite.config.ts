@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
+  base: "./",
   plugins: [vue()],
   // The @prism-wm/* deps are workspace symlinks we edit while developing the
   // package. Pre-bundling would serve a cached copy from node_modules/.vite,

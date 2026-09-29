@@ -12,6 +12,14 @@ It works with Vue 3, React and Svelte. The windowing logic lives once in a vanil
 
 Extracted from [HomeDock OS](https://github.com/BansheeTech/HomeDockOS), which is what it is tested against.
 
+<p align="center">
+  <a href="https://bansheetech.github.io/prism-wm/"><img src="assets/prism-wm-demo.gif" alt="Prism windows being dragged, snapped, maximized and switched to Cupertino chrome" width="800"></a>
+</p>
+
+<p align="center">
+  <b><a href="https://bansheetech.github.io/prism-wm/">Try the live demo</a></b>: <a href="https://bansheetech.github.io/prism-wm/vue/">Vue</a> · <a href="https://bansheetech.github.io/prism-wm/react/">React</a> · <a href="https://bansheetech.github.io/prism-wm/svelte/">Svelte</a>
+</p>
+
 ## Packages
 
 | Package                                                              | Version                                                                                                                  | What it is                                                                                                                     |
