@@ -25,7 +25,7 @@
  */
 
 import { centerDialog, clampDialogPosition, clampPosition, clampSize, computeSnapBounds, DEFAULT_MIN_HEIGHT, DEFAULT_MIN_WIDTH } from "./geometry.js";
-import type { AppConfig, OpenDialogOptions, OpenWindowOptions, SnapSide, Viewport, WindowManagerOptions, WindowManagerState, WindowState } from "./types.js";
+import type { AppConfig, MinimizeTarget, PrismMotion, OpenDialogOptions, OpenWindowOptions, SnapSide, Viewport, WindowManagerOptions, WindowManagerState, WindowState } from "./types.js";
 
 type Listener = () => void;
 
@@ -63,6 +63,7 @@ export class WindowManagerStore {
     nextZIndex: 1000,
     snapPreview: null,
     preSnapBounds: {},
+    motion: "standard",
   };
 
   private listeners = new Set<Listener>();
@@ -76,6 +77,7 @@ export class WindowManagerStore {
   private readonly genId: () => string;
   private readonly taskbarHeight: number;
   private readonly onBeforeClose?: (window: WindowState | null) => boolean | Promise<boolean>;
+  private readonly minimizeTarget?: (id: string) => MinimizeTarget | null | undefined;
 
   constructor(options: WindowManagerOptions = {}) {
     this.resolveApp = options.resolveApp ?? (() => undefined);
@@ -84,6 +86,8 @@ export class WindowManagerStore {
     this.genId = options.generateId ?? defaultId;
     this.taskbarHeight = options.taskbarHeight ?? 0;
     this.onBeforeClose = options.onBeforeClose;
+    this.minimizeTarget = options.getMinimizeTarget;
+    if (options.motion) this.state = { ...this.state, motion: options.motion };
   }
 
   // ---- Subscription API -------------------------------------------------
@@ -123,11 +127,27 @@ export class WindowManagerStore {
   get snapPreview(): SnapSide {
     return this.state.snapPreview;
   }
+  get motion(): PrismMotion {
+    return this.state.motion;
+  }
   getWindowById(id: string): WindowState | null {
     return this.state.windows.find((w) => w.id === id) ?? null;
   }
   getPreSnapBounds(id: string) {
     return this.state.preSnapBounds[id];
+  }
+  getMinimizeTarget(id: string): MinimizeTarget | null {
+    if (!this.minimizeTarget) return null;
+    let rect: MinimizeTarget | null | undefined;
+    try {
+      rect = this.minimizeTarget(id);
+    } catch {
+      return null;
+    }
+    if (!rect) return null;
+    const { x, y, width, height } = rect;
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+    return { x, y, width, height };
   }
   isAppOpen(appId: string): boolean {
     return this.state.windows.some((w) => w.appId === appId);
@@ -418,6 +438,10 @@ export class WindowManagerStore {
     pending.onResult("value" in pending ? pending.value : pending.dismissValue);
   }
 
+  setMotion(motion: PrismMotion): void {
+    if (this.state.motion !== motion) this.set({ motion });
+  }
+
   // ---- Snap -------------------------------------------------------------
 
   setSnapPreview(side: SnapSide): void {
@@ -428,11 +452,18 @@ export class WindowManagerStore {
     if (this.state.snapPreview !== null) this.set({ snapPreview: null });
   }
 
-  snapWindow(id: string, side: "left" | "right", taskbarHeight?: number): void {
+  snapWindow(id: string, side: NonNullable<SnapSide>, taskbarHeight?: number): void {
     const win = this.getWindowById(id);
     if (!win) return;
 
     const preSnapBounds = { ...this.state.preSnapBounds };
+    if (side === "top") {
+      const restore = win.isSnapped ? preSnapBounds[id] : undefined;
+      delete preSnapBounds[id];
+      this.set({ preSnapBounds, snapPreview: null });
+      this.patchWindow(id, { ...restore, isSnapped: null, isMaximized: true });
+      return;
+    }
     if (!win.isSnapped) {
       preSnapBounds[id] = {
         x: win.x,

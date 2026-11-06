@@ -19,11 +19,14 @@
 
   const DOCK_HEIGHT = 64;
 
-  const store = createWindowManager({ taskbarHeight: DOCK_HEIGHT });
+  const store = createWindowManager({
+    taskbarHeight: DOCK_HEIGHT,
+    getMinimizeTarget: (id) => document.querySelector(`[data-dock-window="${id}"]`)?.getBoundingClientRect() ?? null,
+  });
   bindStore(store);
 
   const state = toReadable(store);
-  $: minimized = $state.windows.filter((w) => w.isMinimized);
+  $: taskbar = $state.windows.filter((w) => w.kind !== "dialog" && !w.isClosing);
 
   function open() {
     const n = store.windows.length + 1;
@@ -48,13 +51,21 @@
   }
 
   function openAbout() {
-    store.openWindow("about", { title: "About Prism", width: 480, height: 600 });
+    const width = Math.min(560, window.innerWidth - 32);
+    const height = Math.min(710, window.innerHeight - DOCK_HEIGHT - 16);
+    store.openWindow("about", { title: "About Prism", width, height, x: Math.round((window.innerWidth - width) / 2), y: Math.max(8, Math.round((window.innerHeight - DOCK_HEIGHT - height) / 2)) });
   }
 
   let appearance: "redmond" | "cupertino" = "redmond";
   const looks = [
     { id: "redmond", label: "Redmond" },
     { id: "cupertino", label: "Cupertino" },
+  ] as const;
+
+  let motion: "standard" | "playful" = "standard";
+  const motions = [
+    { id: "standard", label: "Standard" },
+    { id: "playful", label: "Playful" },
   ] as const;
 
   const resolve = (win: { appId: string }) => (win.appId === "about" ? AboutApp : win.appId === "heavy" ? HeavyApp : win.appId === "confirm" ? ConfirmDialog : DemoApp);
@@ -64,7 +75,7 @@
 </script>
 
 {#key appearance}
-  <PrismWindowManager {store} {appearance} resolveComponent={resolve} {isMobile} taskbarHeight={DOCK_HEIGHT} />
+  <PrismWindowManager {store} {appearance} {motion} resolveComponent={resolve} {isMobile} taskbarHeight={DOCK_HEIGHT} />
 {/key}
 
 <nav class="demo-bar" aria-label="Demo">
@@ -83,10 +94,17 @@
       </button>
     {/each}
   </div>
-  {#if minimized.length}
+  <div class="demo-seg" role="group" aria-label="Window motion">
+    {#each motions as m (m.id)}
+      <button aria-pressed={motion === m.id} on:click={() => (motion = m.id)}>
+        {m.label}
+      </button>
+    {/each}
+  </div>
+  {#if taskbar.length}
     <span class="demo-sep"></span>
-    {#each minimized as win (win.id)}
-      <button class="demo-dock-item" title="Restore {win.title}" on:click={() => store.focusWindow(win.id)}>
+    {#each taskbar as win (win.id)}
+      <button class="demo-dock-item" data-dock-window={win.id} title={win.title} on:click={() => store.toggleMinimizeWindow(win.id)}>
         <span>{win.title}</span>
       </button>
     {/each}

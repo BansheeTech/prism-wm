@@ -93,8 +93,6 @@ Hosts that already own a design system can skip it and pass their own class name
 
 - A closing window stays in the list, flagged `isClosing`, until its exit animation ends. A dialog stays in the list too, flagged `kind: "dialog"`. Anything building UI from that list, a taskbar or an alt-tab, wants to filter both out.
 - `requestClose` runs the host's `onBeforeClose` veto and animates. `closeWindow` is the immediate, unconditional removal.
-- Vite 8 users: the CSS is plain enough that lightningcss handles it, but the `@media (prefers-reduced-motion)` blocks must survive minification.
-
 ## License
 
 AGPL-3.0-or-later. Anyone who conveys Prism or a work derived from it, including over a network, has to release the corresponding source of that work under the

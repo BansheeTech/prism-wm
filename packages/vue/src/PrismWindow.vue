@@ -41,6 +41,7 @@
         'pwm-unsnapping': unsnapping,
         'pwm-minimizing': minimizing,
         'pwm-restoring': restoring,
+        'pwm-minimize-target': (minimizing || restoring) && !!minimizeTo,
         'pwm-opening': opening,
         [`pwm-${ctx.appearance.value}`]: true,
       },
@@ -129,7 +130,7 @@
 
 <script lang="ts" setup>
 import { computed, inject, markRaw, onMounted, onUnmounted, ref, watch } from "vue";
-import { computeResize, detectSnapEdge, centerDialog, computeUnsnapFlip, prefersReducedMotion, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, type ResizeDirection, type UnsnapFlip, type WindowState } from "@prism-wm/core";
+import { computeMinimizeTransform, computeResize, computeWindowBounds, detectSnapEdge, centerDialog, computeUnsnapFlip, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, WindowMotion, type ResizeDirection, type UnsnapFlip, type WindowState } from "@prism-wm/core";
 import { PRISM_CONTEXT, resolveCapabilities } from "./context";
 
 // No withDefaults:
@@ -207,29 +208,28 @@ const resolved = computed(() => {
 
 // ---- Entrance animation ------------------------------------------------
 // A class the adapter drops after one run: on .pwm-window it would replay.
-const opening = ref(!prefersReducedMotion());
-const openTimer = opening.value ? setTimeout(() => (opening.value = false), PWM_OPEN_ANIMATION_MS) : null;
+const opening = ref(true);
+const openTimer = setTimeout(() => (opening.value = false), PWM_OPEN_ANIMATION_MS);
 
 // ---- Minimize / restore animation --------------------------------------
 const minimizing = ref(false);
 const restoring = ref(false);
+const minimizeTo = ref<string | null>(null);
 let minimizeTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(
   () => props.window.isMinimized,
   (min) => {
     if (minimizeTimer) clearTimeout(minimizeTimer);
-    if (prefersReducedMotion()) {
-      minimizing.value = false;
-      restoring.value = false;
-      return;
-    }
+    const target = ctx.store.getMinimizeTarget(props.window.id);
+    minimizeTo.value = target ? computeMinimizeTransform(computeWindowBounds(props.window, viewport(), ctx.taskbarHeight.value, ctx.isMobile.value && props.window.kind !== "dialog"), target) : null;
     minimizing.value = min;
     restoring.value = !min;
     minimizeTimer = setTimeout(() => {
       minimizeTimer = null;
       minimizing.value = false;
       restoring.value = false;
+      minimizeTo.value = null;
     }, PWM_MINIMIZE_ANIMATION_MS);
   },
 );
@@ -256,14 +256,15 @@ const viewport = () => ({
 });
 
 // Read by the pwm-unsnap keyframes and inherited by the body for its counter-scale.
-const flipVars = computed(() =>
-  flip.value
+const flipVars = computed(() => ({
+  ...(flip.value
     ? {
         "--pwm-unsnap-from": flip.value.transform,
         "--pwm-unsnap-from-content": flip.value.contentTransform,
       }
-    : {},
-);
+    : {}),
+  ...(minimizeTo.value ? { "--pwm-minimize-to": minimizeTo.value } : {}),
+}));
 
 const windowStyle = computed(() => {
   // Dialogs keep their centred bounds on mobile; only plain windows go fullscreen.
@@ -320,6 +321,48 @@ function onClose() {
   void ctx.requestClose(props.window.id);
 }
 
+let motionModel: WindowMotion | null = null;
+let motionFrame = 0;
+let motionOrigin = "";
+
+function motionYields() {
+  return unsnapping.value || minimizing.value || restoring.value || opening.value || !!props.window.isClosing;
+}
+
+function applyMotion() {
+  const el = rootEl.value;
+  if (!el) return;
+  const transform = motionModel && !motionYields() ? motionModel.transform : null;
+  el.style.transform = transform ?? "";
+  el.style.transformOrigin = transform ? motionOrigin : "";
+}
+
+function motionTick(time: number) {
+  motionFrame = 0;
+  if (!motionModel) return;
+  const moving = motionModel.step(time);
+  applyMotion();
+  if (moving) motionFrame = requestAnimationFrame(motionTick);
+}
+
+function wakeMotion() {
+  if (!motionFrame && motionModel && typeof requestAnimationFrame === "function") motionFrame = requestAnimationFrame(motionTick);
+}
+
+function stopMotion() {
+  if (motionFrame) cancelAnimationFrame(motionFrame);
+  motionFrame = 0;
+  motionModel = null;
+  applyMotion();
+}
+
+watch(
+  () => ctx.motion.value,
+  (m) => {
+    if (m !== "playful") stopMotion();
+  },
+);
+
 // ---- Drag ----------------------------------------------------------------
 const dragging = ref(false);
 let lastClick = 0;
@@ -344,7 +387,7 @@ function releasePointer(el: Element, pointerId: number) {
 }
 
 function onHeaderPointerDown(e: PointerEvent) {
-  if (props.window.isMaximized || ctx.isMobile.value || e.button !== 0) return;
+  if (ctx.isMobile.value || e.button !== 0) return;
 
   const now = Date.now();
   if (now - lastClick < DOUBLE_CLICK_THRESHOLD) {
@@ -364,8 +407,13 @@ function onHeaderPointerDown(e: PointerEvent) {
   const startY = e.clientY;
 
   // A snapped window unsnaps only once the pointer travels, not on a bare click.
-  let pendingUnsnap = !!props.window.isSnapped;
+  let pendingUnsnap = !!props.window.isSnapped || props.window.isMaximized;
   dragging.value = !pendingUnsnap;
+
+  if (ctx.motion.value === "playful") {
+    motionModel ??= new WindowMotion();
+    motionModel.dragStart(startX, startY);
+  }
 
   const move = (ev: PointerEvent) => {
     if (pendingUnsnap) {
@@ -374,16 +422,12 @@ function onHeaderPointerDown(e: PointerEvent) {
       }
       pendingUnsnap = false;
 
-      const pre = ctx.store.getPreSnapBounds(props.window.id);
+      const maximized = props.window.isMaximized;
+      const pre = maximized ? { width: props.window.width, height: props.window.height } : ctx.store.getPreSnapBounds(props.window.id);
       if (pre) {
         // The rect it currently occupies, before the store drops the snap.
-        const from = {
-          x: props.window.x,
-          y: props.window.y,
-          width: props.window.width,
-          height: props.window.height,
-        };
-        const pct = (startX - props.window.x) / props.window.width;
+        const from = computeWindowBounds(props.window, viewport(), ctx.taskbarHeight.value);
+        const pct = (startX - from.x) / from.width;
         initialX = startX - pre.width * pct;
         initialY = startY - 20;
         // Where it lands this frame: the same position committed just below.
@@ -393,7 +437,8 @@ function onHeaderPointerDown(e: PointerEvent) {
           width: pre.width,
           height: pre.height,
         });
-        ctx.store.unSnapWindow(props.window.id);
+        if (maximized) ctx.store.restoreWindow(props.window.id);
+        else ctx.store.unSnapWindow(props.window.id);
       }
       // Position tracks the pointer; transitioning it too makes the window rubber-band.
       dragging.value = true;
@@ -409,12 +454,23 @@ function onHeaderPointerDown(e: PointerEvent) {
     userMoved.value = true;
     ctx.store.updateWindowPosition(props.window.id, initialX + (ev.clientX - startX), initialY + (ev.clientY - startY));
     if (!ctx.isMobile.value && caps.value.maximizable) {
-      ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, viewport().width));
+      ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, ev.clientY, viewport(), ctx.taskbarHeight.value));
+    }
+    if (motionModel) {
+      motionOrigin = `${startX - initialX}px ${startY - initialY}px`;
+      motionModel.dragMove(ev.clientX, ev.clientY);
+      wakeMotion();
     }
   };
   const up = () => {
-    if (ctx.store.snapPreview && !ctx.isMobile.value && caps.value.maximizable) {
+    const snapped = !!ctx.store.snapPreview && !ctx.isMobile.value && caps.value.maximizable;
+    if (snapped && ctx.store.snapPreview) {
       ctx.store.snapWindow(props.window.id, ctx.store.snapPreview, ctx.taskbarHeight.value);
+    }
+    if (motionModel) {
+      motionModel.dragEnd();
+      if (snapped) motionModel.bounce();
+      wakeMotion();
     }
     ctx.store.clearSnapPreview();
     if (unsnapTimer) {
@@ -499,6 +555,7 @@ onUnmounted(() => {
   if (openTimer) clearTimeout(openTimer);
   if (unsnapTimer) clearTimeout(unsnapTimer);
   if (minimizeTimer) clearTimeout(minimizeTimer);
+  if (motionFrame) cancelAnimationFrame(motionFrame);
   if (ctx.ram) ctx.ram.onRestore(props.window.id);
 });
 </script>

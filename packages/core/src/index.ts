@@ -26,7 +26,9 @@
 
 export { WindowManagerStore } from "./store.js";
 export { RamManager } from "./ram-manager.js";
-export { detectSnapEdge, computeSnapBounds, computeResize, centerDialog, clampDialogPosition, clampPosition, clampSize, DIALOG_BOUNDARY_MARGIN, computeUnsnapFlip, SNAP_EDGE_THRESHOLD, DEFAULT_MIN_WIDTH, DEFAULT_MIN_HEIGHT, KEEP_ON_SCREEN, UNSNAP_DRAG_THRESHOLD, PWM_UNSNAP_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_CLOSE_ANIMATION_MS, PWM_MINIMIZE_ANIMATION_MS, prefersReducedMotion } from "./geometry.js";
+export { detectSnapEdge, computeSnapBounds, computeSnapPreviewStyle, computeWindowBounds, computeMinimizeTransform, computeResize, centerDialog, clampDialogPosition, clampPosition, clampSize, DIALOG_BOUNDARY_MARGIN, computeUnsnapFlip, SNAP_EDGE_THRESHOLD, DEFAULT_MIN_WIDTH, DEFAULT_MIN_HEIGHT, KEEP_ON_SCREEN, UNSNAP_DRAG_THRESHOLD, PWM_UNSNAP_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_CLOSE_ANIMATION_MS, PWM_MINIMIZE_ANIMATION_MS } from "./geometry.js";
 export type { Bounds, ResizeDirection, ResizeInput, UnsnapFlip } from "./geometry.js";
+export { WindowMotion, stepSpring, DEFAULT_WINDOW_MOTION, PWM_WOBBLE_SPRING, PWM_BOUNCE_SPRING } from "./motion.js";
+export type { SpringConfig, SpringState, WindowMotionConfig, WindowMotionPose } from "./motion.js";
 export { PWM_EXTERNAL_DIALOG_APP_ID } from "./types.js";
-export type { WindowState, WindowManagerState, WindowManagerOptions, OpenWindowOptions, AppConfig, Viewport, SnapSide, PrismAppearance, DialogModality, OpenDialogOptions, PreSnapBounds } from "./types.js";
+export type { WindowState, WindowManagerState, WindowManagerOptions, OpenWindowOptions, AppConfig, Viewport, SnapSide, PrismAppearance, PrismMotion, DialogModality, OpenDialogOptions, PreSnapBounds, MinimizeTarget } from "./types.js";

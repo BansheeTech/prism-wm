@@ -25,7 +25,7 @@
  */
 
 import { createElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, version as reactVersion, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { computeResize, centerDialog, computeUnsnapFlip, detectSnapEdge, prefersReducedMotion, type UnsnapFlip, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, type PrismAppearance, type ResizeDirection, type WindowState } from "@prism-wm/core";
+import { computeMinimizeTransform, computeResize, computeWindowBounds, centerDialog, computeUnsnapFlip, detectSnapEdge, type UnsnapFlip, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, WindowMotion, type PrismAppearance, type ResizeDirection, type WindowState } from "@prism-wm/core";
 import { cx, resolveCapabilities, usePrismContext } from "./context";
 
 const RESIZE_DIRS: ResizeDirection[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
@@ -93,8 +93,8 @@ const CloseGlyph = () => (
   </svg>
 );
 
-function viewportWidth(): number {
-  return typeof window !== "undefined" ? window.innerWidth : 1920;
+function viewport(): { width: number; height: number } {
+  return typeof window !== "undefined" ? { width: window.innerWidth, height: window.innerHeight } : { width: 1920, height: 1080 };
 }
 
 function capturePointer(el: Element, pointerId: number) {
@@ -139,11 +139,11 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
   const [flip, setFlip] = useState<UnsnapFlip | null>(null);
   const [minimizing, setMinimizing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [minimizeTo, setMinimizeTo] = useState<string | null>(null);
   const minimizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMinimized = useRef(win.isMinimized);
-  const [opening, setOpening] = useState(() => !prefersReducedMotion());
+  const [opening, setOpening] = useState(true);
   useEffect(() => {
-    if (!opening) return;
     const t = setTimeout(() => setOpening(false), PWM_OPEN_ANIMATION_MS);
     return () => clearTimeout(t);
   }, []);
@@ -156,17 +156,15 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
     prevMinimized.current = win.isMinimized;
 
     if (minimizeTimer.current) clearTimeout(minimizeTimer.current);
-    if (prefersReducedMotion()) {
-      setMinimizing(false);
-      setRestoring(false);
-      return;
-    }
+    const target = ctx.store.getMinimizeTarget(win.id);
+    setMinimizeTo(target ? computeMinimizeTransform(computeWindowBounds(win, viewport(), ctx.taskbarHeight, ctx.isMobile && win.kind !== "dialog"), target) : null);
     setMinimizing(win.isMinimized);
     setRestoring(!win.isMinimized);
     minimizeTimer.current = setTimeout(() => {
       minimizeTimer.current = null;
       setMinimizing(false);
       setRestoring(false);
+      setMinimizeTo(null);
     }, PWM_MINIMIZE_ANIMATION_MS);
   }, [win.isMinimized]);
 
@@ -229,9 +227,51 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
     onFocus();
   }
 
+  const motionModel = useRef<WindowMotion | null>(null);
+  const motionFrame = useRef(0);
+  const motionOrigin = useRef("");
+  const motionYields = useRef(false);
+  motionYields.current = unsnapping || minimizing || restoring || opening || isClosing;
+
+  function applyMotion() {
+    const el = rootRef.current;
+    if (!el) return;
+    const transform = motionModel.current && !motionYields.current ? motionModel.current.transform : null;
+    el.style.transform = transform ?? "";
+    el.style.transformOrigin = transform ? motionOrigin.current : "";
+  }
+
+  function motionTick(time: number) {
+    motionFrame.current = 0;
+    if (!motionModel.current) return;
+    const moving = motionModel.current.step(time);
+    applyMotion();
+    if (moving) motionFrame.current = requestAnimationFrame(motionTick);
+  }
+
+  function wakeMotion() {
+    if (!motionFrame.current && motionModel.current && typeof requestAnimationFrame === "function") motionFrame.current = requestAnimationFrame(motionTick);
+  }
+
+  useEffect(() => {
+    if (ctx.motion === "playful") return;
+    if (motionFrame.current) cancelAnimationFrame(motionFrame.current);
+    motionFrame.current = 0;
+    motionModel.current = null;
+    applyMotion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.motion]);
+
+  useEffect(
+    () => () => {
+      if (motionFrame.current) cancelAnimationFrame(motionFrame.current);
+    },
+    [],
+  );
+
   // ---- Drag --------------------------------------------------------------
   function onHeaderPointerDown(e: ReactPointerEvent) {
-    if (win.isMaximized || ctx.isMobile || e.button !== 0) return;
+    if (ctx.isMobile || e.button !== 0) return;
 
     const now = Date.now();
     if (now - lastClick.current < DOUBLE_CLICK_THRESHOLD) {
@@ -251,8 +291,13 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
     const startY = e.clientY;
 
     // A snapped window unsnaps only once the pointer travels, not on a bare click.
-    let pendingUnsnap = !!win.isSnapped;
+    let pendingUnsnap = !!win.isSnapped || win.isMaximized;
     setDragging(!pendingUnsnap);
+
+    if (ctx.motion === "playful") {
+      motionModel.current ??= new WindowMotion();
+      motionModel.current.dragStart(startX, startY);
+    }
 
     const move = (ev: globalThis.PointerEvent) => {
       if (pendingUnsnap) {
@@ -261,16 +306,12 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
         }
         pendingUnsnap = false;
 
-        const pre = ctx.store.getPreSnapBounds(win.id);
+        const maximized = win.isMaximized;
+        const pre = maximized ? { width: win.width, height: win.height } : ctx.store.getPreSnapBounds(win.id);
         if (pre) {
           // The rect it currently occupies, before the store drops the snap.
-          const from = {
-            x: win.x,
-            y: win.y,
-            width: win.width,
-            height: win.height,
-          };
-          const pct = (startX - win.x) / win.width;
+          const from = computeWindowBounds(win, viewport(), ctx.taskbarHeight);
+          const pct = (startX - from.x) / from.width;
           initialX = startX - pre.width * pct;
           initialY = startY - 20;
           // Where it lands this frame: the same position committed just below.
@@ -282,7 +323,8 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
               height: pre.height,
             }),
           );
-          ctx.store.unSnapWindow(win.id);
+          if (maximized) ctx.store.restoreWindow(win.id);
+          else ctx.store.unSnapWindow(win.id);
         }
         // Position tracks the pointer; transitioning it too makes the window rubber-band.
         setDragging(true);
@@ -298,12 +340,23 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
       userMoved.current = true;
       ctx.store.updateWindowPosition(win.id, initialX + (ev.clientX - startX), initialY + (ev.clientY - startY));
       if (!ctx.isMobile && caps.maximizable) {
-        ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, viewportWidth()));
+        ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, ev.clientY, viewport(), ctx.taskbarHeight));
+      }
+      if (motionModel.current) {
+        motionOrigin.current = `${startX - initialX}px ${startY - initialY}px`;
+        motionModel.current.dragMove(ev.clientX, ev.clientY);
+        wakeMotion();
       }
     };
     const up = () => {
-      if (ctx.store.snapPreview && !ctx.isMobile && caps.maximizable) {
+      const snapped = !!ctx.store.snapPreview && !ctx.isMobile && caps.maximizable;
+      if (snapped && ctx.store.snapPreview) {
         ctx.store.snapWindow(win.id, ctx.store.snapPreview, ctx.taskbarHeight);
+      }
+      if (motionModel.current) {
+        motionModel.current.dragEnd();
+        if (snapped) motionModel.current.bounce();
+        wakeMotion();
       }
       ctx.store.clearSnapPreview();
       if (unsnapTimer.current) {
@@ -426,7 +479,7 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
   // Spread rather than a literal attribute:
   const inertProps = isBlocked ? { inert: INERT } : {};
 
-  const className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", ctx.isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", isClosing && "pwm-closing", unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", opening && "pwm-opening", `pwm-${ctx.appearance}`, cls.window, isActive ? cls.windowActive : cls.windowInactive);
+  const className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", ctx.isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", isClosing && "pwm-closing", unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", `pwm-${ctx.appearance}`, cls.window, isActive ? cls.windowActive : cls.windowInactive);
 
   return (
     <div
@@ -445,6 +498,7 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
               "--pwm-unsnap-from-content": flip.contentTransform,
             } as CSSProperties)
           : null),
+        ...(minimizeTo ? ({ "--pwm-minimize-to": minimizeTo } as CSSProperties) : null),
       }}
       onMouseDown={onRootMouseDown}
     >

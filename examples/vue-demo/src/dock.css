@@ -431,8 +431,8 @@ body {
 .demo-about {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.25rem 1.375rem 1.5rem;
+  gap: 1rem;
+  padding: 1rem 1.375rem 1.25rem;
   color: var(--demo-text);
   font-size: 13.5px;
   line-height: 1.55;
@@ -483,8 +483,8 @@ body {
 .demo-about-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
   padding-left: 1.1rem;
   color: var(--demo-text-muted);
 }

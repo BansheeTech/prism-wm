@@ -52,11 +52,6 @@ export const PWM_CLOSE_ANIMATION_MS = 200;
 // How long a window stays visible while it animates in or out of minimized.
 export const PWM_MINIMIZE_ANIMATION_MS = 200;
 
-// Adapters skip their animation delays when the user asked for reduced motion.
-export function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 export interface Bounds {
   x: number;
   y: number;
@@ -94,21 +89,51 @@ export function computeUnsnapFlip(from: Bounds, to: Bounds): UnsnapFlip | null {
 export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 // Which screen edge the cursor is hovering, if any, for the snap preview.
-export function detectSnapEdge(cursorX: number, viewportWidth: number, threshold: number = SNAP_EDGE_THRESHOLD): SnapSide {
-  if (cursorX <= threshold) return "left";
-  if (cursorX >= viewportWidth - threshold) return "right";
+export function detectSnapEdge(cursorX: number, cursorY: number, viewport: Viewport, taskbarHeight: number = 0, threshold: number = SNAP_EDGE_THRESHOLD): SnapSide {
+  const left = cursorX <= threshold;
+  const right = cursorX >= viewport.width - threshold;
+  const top = cursorY <= threshold;
+  const bottom = cursorY >= viewport.height - taskbarHeight - threshold;
+  if (top && left) return "top-left";
+  if (top && right) return "top-right";
+  if (bottom && left) return "bottom-left";
+  if (bottom && right) return "bottom-right";
+  if (left) return "left";
+  if (right) return "right";
+  if (top) return "top";
   return null;
 }
 
-// Half-screen bounds for a left or right snap.
-export function computeSnapBounds(side: "left" | "right", viewport: Viewport, taskbarHeight: number): Bounds {
+// Half, quarter or full-screen bounds for a snap.
+export function computeSnapBounds(side: NonNullable<SnapSide>, viewport: Viewport, taskbarHeight: number): Bounds {
   const availableHeight = viewport.height - taskbarHeight;
-  return {
-    x: side === "left" ? 0 : viewport.width / 2,
-    y: 0,
-    width: viewport.width / 2,
-    height: availableHeight,
-  };
+  if (side === "top") return { x: 0, y: 0, width: viewport.width, height: availableHeight };
+  const halfWidth = viewport.width / 2;
+  const x = side === "right" || side.endsWith("-right") ? halfWidth : 0;
+  if (side === "left" || side === "right") return { x, y: 0, width: halfWidth, height: availableHeight };
+  const halfHeight = availableHeight / 2;
+  return { x, y: side.startsWith("bottom") ? halfHeight : 0, width: halfWidth, height: halfHeight };
+}
+
+export function computeSnapPreviewStyle(side: NonNullable<SnapSide>, taskbarHeight: number): { top: string; height: string } {
+  const available = `(100% - ${taskbarHeight}px)`;
+  if (side === "left" || side === "right" || side === "top") return { top: "0", height: `calc${available}` };
+  const half = `calc(${available} / 2)`;
+  return { top: side.startsWith("bottom") ? half : "0", height: half };
+}
+
+export function computeWindowBounds(win: Bounds & { isMaximized?: boolean }, viewport: Viewport, taskbarHeight: number, fullscreen: boolean = false): Bounds {
+  if (fullscreen || win.isMaximized) return computeSnapBounds("top", viewport, taskbarHeight);
+  return { x: win.x, y: win.y, width: win.width, height: win.height };
+}
+
+export function computeMinimizeTransform(from: Bounds, target: Bounds): string | null {
+  if (from.width <= 0 || from.height <= 0 || target.width <= 0 || target.height <= 0) return null;
+  const scale = Math.min(1, target.width / from.width, target.height / from.height);
+  const dx = target.x + target.width / 2 - from.x - (from.width * scale) / 2;
+  const dy = target.y + target.height / 2 - from.y - (from.height * scale) / 2;
+  if (![scale, dx, dy].every(Number.isFinite)) return null;
+  return `translate(${dx}px, ${dy}px) scale(${scale})`;
 }
 
 // Clamp a position so at least KEEP_ON_SCREEN px stay reachable.

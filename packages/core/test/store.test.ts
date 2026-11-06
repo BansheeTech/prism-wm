@@ -266,8 +266,83 @@ describe("snap / unsnap round-trip", () => {
     const store = makeStore();
     store.setSnapPreview("right");
     expect(store.snapPreview).toBe("right");
+    store.setSnapPreview("bottom-left");
+    expect(store.snapPreview).toBe("bottom-left");
     store.clearSnapPreview();
     expect(store.snapPreview).toBeNull();
+  });
+
+  it("snaps to a quarter and restores the pre-snap bounds", () => {
+    const store = makeStore();
+    const id = store.openWindow("x", { x: 120, y: 130, width: 640, height: 480 });
+    store.setSnapPreview("bottom-right");
+    store.snapWindow(id, "bottom-right", 48);
+    expect(store.snapPreview).toBeNull();
+    expect(store.getWindowById(id)!).toMatchObject({
+      x: 500,
+      y: 376,
+      width: 500,
+      height: 376,
+      isSnapped: "bottom-right",
+      isMaximized: false,
+    });
+    expect(store.getPreSnapBounds(id)).toEqual({ x: 120, y: 130, width: 640, height: 480 });
+
+    store.snapWindow(id, "top-left", 48);
+    expect(store.getWindowById(id)!).toMatchObject({ x: 0, y: 0, width: 500, height: 376, isSnapped: "top-left" });
+    expect(store.getPreSnapBounds(id)).toEqual({ x: 120, y: 130, width: 640, height: 480 });
+
+    store.unSnapWindow(id);
+    expect(store.getWindowById(id)!).toMatchObject({ x: 120, y: 130, width: 640, height: 480, isSnapped: null });
+    expect(store.getPreSnapBounds(id)).toBeUndefined();
+  });
+
+  it("maximizes on a top snap and keeps the floating bounds for restore", () => {
+    const store = makeStore();
+    const id = store.openWindow("x", { x: 120, y: 0, width: 640, height: 480 });
+    store.setSnapPreview("top");
+    store.snapWindow(id, "top");
+    expect(store.snapPreview).toBeNull();
+    expect(store.getWindowById(id)!).toMatchObject({ x: 120, y: 0, width: 640, height: 480, isMaximized: true, isSnapped: null });
+    expect(store.getPreSnapBounds(id)).toBeUndefined();
+    store.restoreWindow(id);
+    expect(store.getWindowById(id)!).toMatchObject({ x: 120, y: 0, width: 640, height: 480, isMaximized: false });
+  });
+
+  it("drops a half snap in favour of its pre-snap bounds when snapped to top", () => {
+    const store = makeStore();
+    const id = store.openWindow("x", { x: 120, y: 130, width: 640, height: 480 });
+    store.snapWindow(id, "left");
+    store.snapWindow(id, "top");
+    expect(store.getWindowById(id)!).toMatchObject({ x: 120, y: 130, width: 640, height: 480, isMaximized: true, isSnapped: null });
+    expect(store.getPreSnapBounds(id)).toBeUndefined();
+  });
+});
+
+describe("getMinimizeTarget", () => {
+  it("returns null without a host callback", () => {
+    const store = makeStore();
+    const id = store.openWindow("x");
+    expect(store.getMinimizeTarget(id)).toBeNull();
+  });
+
+  it("passes the window id through and copies the rect", () => {
+    const rect = { x: 10, y: 750, width: 48, height: 40, top: 750, left: 10 };
+    const spy = vi.fn(() => rect);
+    const store = new WindowManagerStore({ generateId: () => "w1", getViewport: () => VIEWPORT, getMinimizeTarget: spy });
+    const id = store.openWindow("x");
+    expect(store.getMinimizeTarget(id)).toEqual({ x: 10, y: 750, width: 48, height: 40 });
+    expect(spy).toHaveBeenCalledWith("w1");
+  });
+
+  it("falls back to null for missing, degenerate or throwing targets", () => {
+    const answers: Array<() => unknown> = [() => null, () => undefined, () => ({ x: 0, y: 0, width: 0, height: 40 }), () => ({ x: Number.NaN, y: 0, width: 40, height: 40 }), () => {
+      throw new Error("gone");
+    }];
+    for (const answer of answers) {
+      const store = new WindowManagerStore({ getMinimizeTarget: answer as () => null });
+      expect(store.getMinimizeTarget("any")).toBeNull();
+    }
   });
 });
 

@@ -25,7 +25,7 @@
  */
 
 import type { InjectionKey, Ref } from "vue";
-import type { AppConfig, RamManager, WindowManagerStore, WindowState, PrismAppearance } from "@prism-wm/core";
+import type { AppConfig, RamManager, WindowManagerStore, WindowState, PrismAppearance, PrismMotion } from "@prism-wm/core";
 
 export interface WindowCapabilities {
   resizable: boolean;
@@ -110,6 +110,7 @@ export interface PrismContext {
   isMobile: Ref<boolean>;
   // Where the window controls sit. See PrismAppearance in core.
   appearance: Ref<PrismAppearance>;
+  motion: Ref<PrismMotion>;
   taskbarHeight: Ref<number>;
   labels: WindowLabels;
   classes: Ref<PrismClassMap>;

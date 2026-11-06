@@ -25,7 +25,7 @@
 -->
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { prefersReducedMotion, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type WindowManagerStore, type WindowState } from "@prism-wm/core";
+  import { computeSnapPreviewStyle, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type PrismMotion, type WindowManagerStore, type WindowState } from "@prism-wm/core";
   import { toReadable } from "./store.js";
   import { cx, DEFAULT_LABELS, EMPTY_CLASSES, setPrismContext, type PrismClassMap, type PrismContext, type WindowLabels } from "./context.js";
   import PrismWindow from "./PrismWindow.svelte";
@@ -44,8 +44,10 @@
   export let enableRamManager = true;
   // Global on purpose: nobody wants one window in each appearance.
   export let appearance: PrismAppearance = "redmond";
+  export let motion: PrismMotion | undefined = undefined;
 
   const state = toReadable(store);
+  $: effectiveMotion = motion ?? $state.motion;
   const ram = enableRamManager ? new RamManager() : null;
 
   // Reactive, so a host swapping themes repaints without recreating the manager.
@@ -77,17 +79,13 @@
   // Driven off isClosing, so a close from a taskbar animates too.
   $: for (const win of $state.windows) {
     if (win.isClosing && !closeTimers.has(win.id)) {
-      if (prefersReducedMotion()) {
-        store.closeWindow(win.id);
-      } else {
-        closeTimers.set(
-          win.id,
-          setTimeout(() => {
-            closeTimers.delete(win.id);
-            store.closeWindow(win.id);
-          }, PWM_CLOSE_ANIMATION_MS),
-        );
-      }
+      closeTimers.set(
+        win.id,
+        setTimeout(() => {
+          closeTimers.delete(win.id);
+          store.closeWindow(win.id);
+        }, PWM_CLOSE_ANIMATION_MS),
+      );
     }
   }
 
@@ -159,12 +157,13 @@
 
 <div class={cx("pwm-manager", merged.manager)}>
   {#if $state.snapPreview}
-    <div class={cx("pwm-snap-preview", `pwm-snap-${$state.snapPreview}`, merged.snapPreview)} style="height: calc(100% - {taskbarHeight}px)"></div>
+    {@const preview = computeSnapPreviewStyle($state.snapPreview, taskbarHeight)}
+    <div class={cx("pwm-snap-preview", `pwm-snap-${$state.snapPreview}`, merged.snapPreview)} style="top: {preview.top}; height: {preview.height}"></div>
   {/if}
 
   <!-- Every window, minimized ones hidden, so the RAM manager decides on unmount. -->
   {#each grounded as win (win.id)}
-    <PrismWindow {win} isActive={win.id === $state.activeWindowId} isBlocked={blockedOwners.has(win.id)} {isMobile} {taskbarHeight} classes={merged}>
+    <PrismWindow {win} isActive={win.id === $state.activeWindowId} isBlocked={blockedOwners.has(win.id)} {isMobile} {taskbarHeight} motion={effectiveMotion} classes={merged}>
       <svelte:fragment slot="icon" let:win>
         <slot name="icon" {win}><ControlGlyph kind="window" /></slot>
       </svelte:fragment>
@@ -194,7 +193,7 @@
     {/if}
 
     {#each layered as win (win.id)}
-      <PrismWindow {win} isActive={win.id === $state.activeWindowId} isBlocked={blockedOwners.has(win.id)} {isMobile} {taskbarHeight} classes={merged}>
+      <PrismWindow {win} isActive={win.id === $state.activeWindowId} isBlocked={blockedOwners.has(win.id)} {isMobile} {taskbarHeight} motion={effectiveMotion} classes={merged}>
         <svelte:fragment slot="icon" let:win>
           <slot name="icon" {win}><ControlGlyph kind="window" /></slot>
         </svelte:fragment>

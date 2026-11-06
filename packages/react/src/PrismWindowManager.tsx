@@ -26,7 +26,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { prefersReducedMotion, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type WindowManagerStore, type WindowState } from "@prism-wm/core";
+import { computeSnapPreviewStyle, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type PrismMotion, type WindowManagerStore, type WindowState } from "@prism-wm/core";
 import { useWindowManager } from "./useWindowManager";
 import { cx, DEFAULT_LABELS, EMPTY_CLASSES, PrismProvider, type PrismClassMap, type PrismContext, type WindowLabels } from "./context";
 import { PrismWindow } from "./PrismWindow";
@@ -41,6 +41,7 @@ export interface PrismWindowManagerProps {
   classes?: Partial<PrismClassMap>;
   enableRamManager?: boolean;
   appearance?: PrismAppearance;
+  motion?: PrismMotion;
   renderIcon?: (window: WindowState) => ReactNode;
   renderTitleBarExtra?: (window: WindowState) => ReactNode;
   renderLoading?: () => ReactNode;
@@ -56,6 +57,7 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
   const mergedClasses = useMemo<PrismClassMap>(() => ({ ...EMPTY_CLASSES, ...classes }), [classes]);
 
   const state = useWindowManager(store);
+  const motion = props.motion ?? state.motion;
 
   // One RAM manager for the lifetime of the manager.
   const ramRef = useRef<RamManager | null>(null);
@@ -85,10 +87,6 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
     const timers = closeTimers.current;
     for (const win of state.windows) {
       if (!win.isClosing || timers.has(win.id)) continue;
-      if (prefersReducedMotion()) {
-        store.closeWindow(win.id);
-        continue;
-      }
       timers.set(
         win.id,
         setTimeout(() => {
@@ -156,6 +154,7 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
       isMobile,
       taskbarHeight,
       appearance,
+      motion,
       labels: { ...DEFAULT_LABELS, ...labels },
       classes: mergedClasses,
       requestClose,
@@ -167,7 +166,7 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
       restoreIcon: props.restoreIcon,
       closeIcon: props.closeIcon,
     }),
-    [store, resolveComponent, resolveConfig, isMobile, taskbarHeight, appearance, labels, mergedClasses, requestClose, props.renderIcon, props.renderTitleBarExtra, props.renderLoading, props.minimizeIcon, props.maximizeIcon, props.restoreIcon, props.closeIcon],
+    [store, resolveComponent, resolveConfig, isMobile, taskbarHeight, appearance, motion, labels, mergedClasses, requestClose, props.renderIcon, props.renderTitleBarExtra, props.renderLoading, props.minimizeIcon, props.maximizeIcon, props.restoreIcon, props.closeIcon],
   );
 
   // `app` paints a sheet under the topmost dialog; `window` inerts the owner.
@@ -190,7 +189,7 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
   return (
     <PrismProvider value={context}>
       <div className={cx("pwm-manager", mergedClasses.manager)}>
-        {state.snapPreview && <div className={cx("pwm-snap-preview", `pwm-snap-${state.snapPreview}`, mergedClasses.snapPreview)} style={{ height: `calc(100% - ${taskbarHeight}px)` }} />}
+        {state.snapPreview && <div className={cx("pwm-snap-preview", `pwm-snap-${state.snapPreview}`, mergedClasses.snapPreview)} style={computeSnapPreviewStyle(state.snapPreview, taskbarHeight)} />}
         {/* Every window, minimized ones hidden with display:none in
             PrismWindow) so the RAM manager decides when to unmount them. */}
         {grounded.map(renderWindow)}

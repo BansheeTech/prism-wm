@@ -27,25 +27,53 @@
  * maths. Every adapter runs on it, so a change here moves all three at once.
  */
 import { describe, it, expect } from "vitest";
-import { detectSnapEdge, computeSnapBounds, clampPosition, clampSize, computeResize, computeUnsnapFlip, centerDialog, clampDialogPosition } from "../src/geometry.js";
+import { detectSnapEdge, computeSnapBounds, computeSnapPreviewStyle, computeWindowBounds, computeMinimizeTransform, clampPosition, clampSize, computeResize, computeUnsnapFlip, centerDialog, clampDialogPosition } from "../src/geometry.js";
 
 describe("detectSnapEdge", () => {
+  const vp = { width: 1000, height: 800 };
   it("snaps left within threshold", () => {
-    expect(detectSnapEdge(0, 1000)).toBe("left");
-    expect(detectSnapEdge(20, 1000)).toBe("left");
+    expect(detectSnapEdge(0, 400, vp)).toBe("left");
+    expect(detectSnapEdge(20, 400, vp)).toBe("left");
   });
   it("snaps right within threshold", () => {
-    expect(detectSnapEdge(1000, 1000)).toBe("right");
-    expect(detectSnapEdge(980, 1000)).toBe("right");
+    expect(detectSnapEdge(1000, 400, vp)).toBe("right");
+    expect(detectSnapEdge(980, 400, vp)).toBe("right");
   });
   it("returns null in the middle", () => {
-    expect(detectSnapEdge(21, 1000)).toBeNull();
-    expect(detectSnapEdge(979, 1000)).toBeNull();
-    expect(detectSnapEdge(500, 1000)).toBeNull();
+    expect(detectSnapEdge(21, 400, vp)).toBeNull();
+    expect(detectSnapEdge(979, 400, vp)).toBeNull();
+    expect(detectSnapEdge(500, 400, vp)).toBeNull();
+    expect(detectSnapEdge(500, 21, vp)).toBeNull();
   });
   it("honours a custom threshold", () => {
-    expect(detectSnapEdge(30, 1000, 40)).toBe("left");
-    expect(detectSnapEdge(30, 1000, 20)).toBeNull();
+    expect(detectSnapEdge(30, 400, vp, 0, 40)).toBe("left");
+    expect(detectSnapEdge(30, 400, vp, 0, 20)).toBeNull();
+    expect(detectSnapEdge(500, 30, vp, 0, 40)).toBe("top");
+  });
+  it("maximizes on the top edge", () => {
+    expect(detectSnapEdge(500, 0, vp)).toBe("top");
+    expect(detectSnapEdge(500, 20, vp)).toBe("top");
+    expect(detectSnapEdge(21, 0, vp)).toBe("top");
+    expect(detectSnapEdge(979, 0, vp)).toBe("top");
+  });
+  it("snaps to the top corners when both axes are within threshold", () => {
+    expect(detectSnapEdge(0, 0, vp)).toBe("top-left");
+    expect(detectSnapEdge(20, 20, vp)).toBe("top-left");
+    expect(detectSnapEdge(1000, 0, vp)).toBe("top-right");
+    expect(detectSnapEdge(980, 20, vp)).toBe("top-right");
+    expect(detectSnapEdge(20, 21, vp)).toBe("left");
+  });
+  it("snaps to the bottom corners above the taskbar", () => {
+    expect(detectSnapEdge(0, 800, vp)).toBe("bottom-left");
+    expect(detectSnapEdge(1000, 780, vp)).toBe("bottom-right");
+    expect(detectSnapEdge(0, 779, vp)).toBe("left");
+    expect(detectSnapEdge(0, 732, vp, 48)).toBe("bottom-left");
+    expect(detectSnapEdge(1000, 790, vp, 48)).toBe("bottom-right");
+    expect(detectSnapEdge(0, 731, vp, 48)).toBe("left");
+  });
+  it("never snaps to the bottom edge alone", () => {
+    expect(detectSnapEdge(500, 800, vp)).toBeNull();
+    expect(detectSnapEdge(500, 760, vp, 48)).toBeNull();
   });
 });
 
@@ -66,6 +94,61 @@ describe("computeSnapBounds", () => {
       width: 500,
       height: 752,
     });
+  });
+  it("computes the full area for top", () => {
+    expect(computeSnapBounds("top", vp, 48)).toEqual({ x: 0, y: 0, width: 1000, height: 752 });
+  });
+  it("computes quarters above the taskbar", () => {
+    expect(computeSnapBounds("top-left", vp, 48)).toEqual({ x: 0, y: 0, width: 500, height: 376 });
+    expect(computeSnapBounds("top-right", vp, 48)).toEqual({ x: 500, y: 0, width: 500, height: 376 });
+    expect(computeSnapBounds("bottom-left", vp, 48)).toEqual({ x: 0, y: 376, width: 500, height: 376 });
+    expect(computeSnapBounds("bottom-right", vp, 48)).toEqual({ x: 500, y: 376, width: 500, height: 376 });
+  });
+});
+
+describe("computeSnapPreviewStyle", () => {
+  it("spans the available height for halves and top", () => {
+    expect(computeSnapPreviewStyle("left", 48)).toEqual({ top: "0", height: "calc(100% - 48px)" });
+    expect(computeSnapPreviewStyle("right", 48)).toEqual({ top: "0", height: "calc(100% - 48px)" });
+    expect(computeSnapPreviewStyle("top", 48)).toEqual({ top: "0", height: "calc(100% - 48px)" });
+  });
+  it("halves the available height for quarters", () => {
+    expect(computeSnapPreviewStyle("top-left", 48)).toEqual({ top: "0", height: "calc((100% - 48px) / 2)" });
+    expect(computeSnapPreviewStyle("top-right", 0)).toEqual({ top: "0", height: "calc((100% - 0px) / 2)" });
+    expect(computeSnapPreviewStyle("bottom-left", 48)).toEqual({ top: "calc((100% - 48px) / 2)", height: "calc((100% - 48px) / 2)" });
+    expect(computeSnapPreviewStyle("bottom-right", 48)).toEqual({ top: "calc((100% - 48px) / 2)", height: "calc((100% - 48px) / 2)" });
+  });
+});
+
+describe("computeWindowBounds", () => {
+  const vp = { width: 1000, height: 800 };
+  const win = { x: 100, y: 50, width: 640, height: 480 };
+  it("returns the floating rect", () => {
+    expect(computeWindowBounds(win, vp, 48)).toEqual(win);
+  });
+  it("returns the work area when maximized or fullscreen", () => {
+    expect(computeWindowBounds({ ...win, isMaximized: true }, vp, 48)).toEqual({ x: 0, y: 0, width: 1000, height: 752 });
+    expect(computeWindowBounds(win, vp, 48, true)).toEqual({ x: 0, y: 0, width: 1000, height: 752 });
+  });
+});
+
+describe("computeMinimizeTransform", () => {
+  const from = { x: 100, y: 100, width: 800, height: 600 };
+  it("scales uniformly and centres the window on the target", () => {
+    const target = { x: 480, y: 760, width: 40, height: 40 };
+    expect(computeMinimizeTransform(from, target)).toBe("translate(380px, 665px) scale(0.05)");
+  });
+  it("uses the tighter axis so the window fits inside the target", () => {
+    const target = { x: 0, y: 0, width: 160, height: 30 };
+    expect(computeMinimizeTransform(from, target)).toBe("translate(-40px, -100px) scale(0.05)");
+  });
+  it("never scales up", () => {
+    expect(computeMinimizeTransform(from, { x: 0, y: 0, width: 2000, height: 2000 })).toBe("translate(500px, 600px) scale(1)");
+  });
+  it("rejects degenerate rects", () => {
+    expect(computeMinimizeTransform(from, { x: 0, y: 0, width: 0, height: 40 })).toBeNull();
+    expect(computeMinimizeTransform({ ...from, width: 0 }, { x: 0, y: 0, width: 40, height: 40 })).toBeNull();
+    expect(computeMinimizeTransform(from, { x: Number.NaN, y: 0, width: 40, height: 40 })).toBeNull();
   });
 });
 

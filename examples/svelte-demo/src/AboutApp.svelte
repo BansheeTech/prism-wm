@@ -21,6 +21,7 @@
       <li>Anyone who conveys Prism or a work derived from it, including over a network, has to release the corresponding source of that work under the AGPL.</li>
       <li>If users interact with your app over a network, you have to offer them the source of your program, not just of Prism (section 13). In practice: a visible link to your source from the running app.</li>
       <li>Splitting your changes into a separate adapter file does not avoid this: copyleft covers the derivative work as a whole.</li>
+      <li>Porting or rewriting Prism with an AI tool does not change this: the result is still a derivative work under the AGPL. We do enforce our license.</li>
     </ul>
     <a class="demo-about-link" href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">Read the full license</a>
   </section>

@@ -26,7 +26,7 @@
 <template>
   <div class="pwm-manager" :class="mergedClasses.manager">
     <!-- Plain v-if / v-for (no <Transition>): -->
-    <div v-if="snapPreview" class="pwm-snap-preview" :class="[`pwm-snap-${snapPreview}`, mergedClasses.snapPreview]" :style="{ height: `calc(100% - ${taskbarHeight}px)` }" />
+    <div v-if="snapPreview" class="pwm-snap-preview" :class="[`pwm-snap-${snapPreview}`, mergedClasses.snapPreview]" :style="computeSnapPreviewStyle(snapPreview, taskbarHeight)" />
 
     <PrismWindow v-for="win in grounded" :key="win.id" :window="win" :is-active="win.id === activeWindowId" :is-blocked="blockedOwners.has(win.id)">
       <template #icon="slotProps">
@@ -82,7 +82,7 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, onUnmounted, provide, toRef, watch } from "vue";
-import { prefersReducedMotion, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type WindowManagerStore, type WindowState } from "@prism-wm/core";
+import { computeSnapPreviewStyle, PWM_CLOSE_ANIMATION_MS, RamManager, type AppConfig, type PrismAppearance, type PrismMotion, type WindowManagerStore, type WindowState } from "@prism-wm/core";
 import { useWindowManager } from "./useWindowManager";
 import { DEFAULT_LABELS, EMPTY_CLASSES, PRISM_CONTEXT, type PrismClassMap, type PrismContext, type WindowLabels } from "./context";
 import PrismWindow from "./PrismWindow.vue";
@@ -101,6 +101,7 @@ const props = withDefaults(
     enableRamManager?: boolean;
     // Global on purpose: nobody wants one window in each appearance.
     appearance?: PrismAppearance;
+    motion?: PrismMotion;
   }>(),
   {
     resolveConfig: undefined,
@@ -110,6 +111,7 @@ const props = withDefaults(
     classes: undefined,
     enableRamManager: true,
     appearance: "redmond",
+    motion: undefined,
   },
 );
 
@@ -159,10 +161,6 @@ watch(
   (windows) => {
     for (const win of windows) {
       if (!win.isClosing || closeTimers.has(win.id)) continue;
-      if (prefersReducedMotion()) {
-        props.store.closeWindow(win.id);
-        continue;
-      }
       closeTimers.set(
         win.id,
         setTimeout(() => {
@@ -182,6 +180,7 @@ const context: PrismContext = {
   resolveConfig: props.resolveConfig ?? (() => undefined),
   isMobile: toRef(props, "isMobile"),
   appearance: toRef(props, "appearance"),
+  motion: computed(() => props.motion ?? state.value.motion),
   taskbarHeight: toRef(props, "taskbarHeight"),
   labels: { ...DEFAULT_LABELS, ...props.labels },
   classes: mergedClasses,

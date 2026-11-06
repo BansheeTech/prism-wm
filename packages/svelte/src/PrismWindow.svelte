@@ -24,8 +24,8 @@
   SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <script lang="ts">
-  import { onDestroy, onMount, type ComponentType } from "svelte";
-  import { computeResize, centerDialog, computeUnsnapFlip, detectSnapEdge, prefersReducedMotion, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, type ResizeDirection, type UnsnapFlip, type WindowState } from "@prism-wm/core";
+  import { afterUpdate, onDestroy, onMount, type ComponentType } from "svelte";
+  import { computeMinimizeTransform, computeResize, computeWindowBounds, centerDialog, computeUnsnapFlip, detectSnapEdge, PWM_MINIMIZE_ANIMATION_MS, PWM_OPEN_ANIMATION_MS, PWM_UNSNAP_ANIMATION_MS, UNSNAP_DRAG_THRESHOLD, WindowMotion, type PrismMotion, type ResizeDirection, type UnsnapFlip, type WindowState } from "@prism-wm/core";
   import { cx, EMPTY_CLASSES, getPrismContext, resolveCapabilities, type PrismClassMap } from "./context.js";
   import ControlGlyph from "./ControlGlyph.svelte";
   import LoadingGlyph from "./LoadingGlyph.svelte";
@@ -39,6 +39,7 @@
   export let classes: PrismClassMap = EMPTY_CLASSES;
   // A window-modal dialog belongs to this window: block and inert it.
   export let isBlocked = false;
+  export let motion: PrismMotion = "standard";
 
   const ctx = getPrismContext();
 
@@ -58,27 +59,30 @@
 
   // ---- Entrance animation ----------------------------------------------
   // A class the adapter drops after one run: on .pwm-window it would replay.
-  let opening = !prefersReducedMotion();
-  const openTimer = opening ? setTimeout(() => (opening = false), PWM_OPEN_ANIMATION_MS) : null;
+  let opening = true;
+  const openTimer = setTimeout(() => (opening = false), PWM_OPEN_ANIMATION_MS);
 
   // ---- Minimize / restore animation ------------------------------------
   let minimizing = false;
   let restoring = false;
+  let minimizeTo: string | null = null;
   let minimizeTimer: ReturnType<typeof setTimeout> | null = null;
   function onMinimizedChange(min: boolean) {
     if (minimizeTimer) clearTimeout(minimizeTimer);
-    if (prefersReducedMotion()) {
-      minimizing = false;
-      restoring = false;
-      return;
-    }
+    const target = ctx.store.getMinimizeTarget(win.id);
+    minimizeTo = target ? computeMinimizeTransform(computeWindowBounds(win, viewport(), taskbarHeight, isMobile && win.kind !== "dialog"), target) : null;
     minimizing = min;
     restoring = !min;
     minimizeTimer = setTimeout(() => {
       minimizeTimer = null;
       minimizing = false;
       restoring = false;
+      minimizeTo = null;
     }, PWM_MINIMIZE_ANIMATION_MS);
+  }
+
+  function viewport() {
+    return { width: window.innerWidth, height: window.innerHeight };
   }
 
   $: caps = ((c) =>
@@ -141,15 +145,15 @@
   });
 
   // ---- Style + class ---------------------------------------------------
-  $: className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", win.isClosing && "pwm-closing", `pwm-${ctx.appearance}`, unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", opening && "pwm-opening", classes.window, isActive ? classes.windowActive : classes.windowInactive);
+  $: className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", win.isClosing && "pwm-closing", `pwm-${ctx.appearance}`, unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", classes.window, isActive ? classes.windowActive : classes.windowInactive);
 
-  $: style = buildStyle(win, isMobile, taskbarHeight, minimizing, flip);
+  $: style = buildStyle(win, isMobile, taskbarHeight, minimizing, flip, minimizeTo);
 
-  function buildStyle(w: WindowState, mobile: boolean, tb: number, keepVisible: boolean, f: UnsnapFlip | null): string {
+  function buildStyle(w: WindowState, mobile: boolean, tb: number, keepVisible: boolean, f: UnsnapFlip | null, to: string | null): string {
     const z = `z-index:${w.zIndex};`;
     const hidden = w.isMinimized && !keepVisible ? "display:none;" : "";
     // Read by the pwm-unsnap keyframes;
-    const vars = f ? `--pwm-unsnap-from:${f.transform};--pwm-unsnap-from-content:${f.contentTransform};` : "";
+    const vars = (f ? `--pwm-unsnap-from:${f.transform};--pwm-unsnap-from-content:${f.contentTransform};` : "") + (to ? `--pwm-minimize-to:${to};` : "");
     // Dialogs keep their centred bounds on mobile; only plain windows go fullscreen.
     if (mobile && w.kind !== "dialog") return `${hidden}top:0;left:0;width:100vw;height:calc(100% - ${tb}px);${z}${vars}`;
     if (w.isMaximized) return `${hidden}top:0;left:0;width:100%;height:calc(100% - ${tb}px);${z}${vars}`;
@@ -174,6 +178,47 @@
     onFocus();
   }
 
+  let motionModel: WindowMotion | null = null;
+  let motionFrame = 0;
+  let motionOrigin = "";
+
+  function applyMotion() {
+    if (!rootEl) return;
+    const yields = unsnapping || minimizing || restoring || opening || !!win.isClosing;
+    const transform = motionModel && !yields ? motionModel.transform : null;
+    rootEl.style.transform = transform ?? "";
+    rootEl.style.transformOrigin = transform ? motionOrigin : "";
+  }
+
+  function motionTick(time: number) {
+    motionFrame = 0;
+    if (!motionModel) return;
+    const moving = motionModel.step(time);
+    applyMotion();
+    if (moving) motionFrame = requestAnimationFrame(motionTick);
+  }
+
+  function wakeMotion() {
+    if (!motionFrame && motionModel && typeof requestAnimationFrame === "function") motionFrame = requestAnimationFrame(motionTick);
+  }
+
+  function stopMotion() {
+    if (motionFrame) cancelAnimationFrame(motionFrame);
+    motionFrame = 0;
+    motionModel = null;
+    applyMotion();
+  }
+
+  $: if (motion !== "playful") stopMotion();
+
+  afterUpdate(() => {
+    if (motionModel) applyMotion();
+  });
+
+  onDestroy(() => {
+    if (motionFrame) cancelAnimationFrame(motionFrame);
+  });
+
   // ---- Drag --------------------------------------------------------------
   function capturePointer(el: Element, pointerId: number) {
     try {
@@ -192,7 +237,7 @@
   }
 
   function onHeaderPointerDown(e: PointerEvent) {
-    if (win.isMaximized || isMobile || e.button !== 0) return;
+    if (isMobile || e.button !== 0) return;
 
     const now = Date.now();
     if (now - lastClick < DOUBLE_CLICK_THRESHOLD) {
@@ -212,8 +257,13 @@
     const startY = e.clientY;
 
     // A snapped window unsnaps only once the pointer travels, not on a bare click.
-    let pendingUnsnap = !!win.isSnapped;
+    let pendingUnsnap = !!win.isSnapped || win.isMaximized;
     dragging = !pendingUnsnap;
+
+    if (motion === "playful") {
+      motionModel ??= new WindowMotion();
+      motionModel.dragStart(startX, startY);
+    }
 
     const move = (ev: PointerEvent) => {
       if (pendingUnsnap) {
@@ -222,16 +272,12 @@
         }
         pendingUnsnap = false;
 
-        const pre = ctx.store.getPreSnapBounds(win.id);
+        const maximized = win.isMaximized;
+        const pre = maximized ? { width: win.width, height: win.height } : ctx.store.getPreSnapBounds(win.id);
         if (pre) {
           // The rect it currently occupies, before the store drops the snap.
-          const from = {
-            x: win.x,
-            y: win.y,
-            width: win.width,
-            height: win.height,
-          };
-          const pct = (startX - win.x) / win.width;
+          const from = computeWindowBounds(win, viewport(), taskbarHeight);
+          const pct = (startX - from.x) / from.width;
           initialX = startX - pre.width * pct;
           initialY = startY - 20;
           // Where it lands this frame: the same position committed just below.
@@ -241,7 +287,8 @@
             width: pre.width,
             height: pre.height,
           });
-          ctx.store.unSnapWindow(win.id);
+          if (maximized) ctx.store.restoreWindow(win.id);
+          else ctx.store.unSnapWindow(win.id);
         }
         // Position tracks the pointer; transitioning it too makes the window rubber-band.
         dragging = true;
@@ -257,12 +304,23 @@
       userMoved = true;
       ctx.store.updateWindowPosition(win.id, initialX + (ev.clientX - startX), initialY + (ev.clientY - startY));
       if (!isMobile && caps.maximizable) {
-        ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, window.innerWidth));
+        ctx.store.setSnapPreview(detectSnapEdge(ev.clientX, ev.clientY, viewport(), taskbarHeight));
+      }
+      if (motionModel) {
+        motionOrigin = `${startX - initialX}px ${startY - initialY}px`;
+        motionModel.dragMove(ev.clientX, ev.clientY);
+        wakeMotion();
       }
     };
     const up = () => {
-      if (ctx.store.snapPreview && !isMobile && caps.maximizable) {
+      const snapped = !!ctx.store.snapPreview && !isMobile && caps.maximizable;
+      if (snapped && ctx.store.snapPreview) {
         ctx.store.snapWindow(win.id, ctx.store.snapPreview, taskbarHeight);
+      }
+      if (motionModel) {
+        motionModel.dragEnd();
+        if (snapped) motionModel.bounce();
+        wakeMotion();
       }
       ctx.store.clearSnapPreview();
       if (unsnapTimer) {

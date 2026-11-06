@@ -24,10 +24,19 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-export type SnapSide = "left" | "right" | null;
+export type SnapSide = "left" | "right" | "top" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
+
+export interface MinimizeTarget {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 // Where the window controls sit.
 export type PrismAppearance = "redmond" | "cupertino";
+
+export type PrismMotion = "standard" | "playful";
 
 // How much a dialog blocks.
 export type DialogModality = "app" | "window" | "none";
@@ -117,6 +126,10 @@ export interface WindowManagerOptions {
 
   // Height reserved for a taskbar or dock, in px. Used by maximize and snap.
   taskbarHeight?: number;
+
+  getMinimizeTarget?: (id: string) => MinimizeTarget | null | undefined;
+
+  motion?: PrismMotion;
 }
 
 // Hosts must not register anything against this id.
@@ -151,4 +164,5 @@ export interface WindowManagerState {
   nextZIndex: number;
   snapPreview: SnapSide;
   preSnapBounds: Record<string, PreSnapBounds>;
+  motion: PrismMotion;
 }

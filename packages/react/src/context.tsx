@@ -25,7 +25,7 @@
  */
 
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
-import type { AppConfig, RamManager, WindowManagerStore, WindowState, PrismAppearance } from "@prism-wm/core";
+import type { AppConfig, RamManager, WindowManagerStore, WindowState, PrismAppearance, PrismMotion } from "@prism-wm/core";
 
 export interface WindowCapabilities {
   resizable: boolean;
@@ -104,6 +104,7 @@ export interface PrismContext {
   isMobile: boolean;
   taskbarHeight: number;
   appearance: PrismAppearance;
+  motion: PrismMotion;
   labels: WindowLabels;
   classes: PrismClassMap;
   requestClose: (id: string) => void | Promise<void>;

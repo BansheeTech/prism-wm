@@ -55,10 +55,13 @@ onUnmounted(() => mq.removeEventListener("change", syncMobile));
 
 const DOCK_HEIGHT = 64;
 
-const store = createWindowManager({ taskbarHeight: DOCK_HEIGHT });
+const store = createWindowManager({
+  taskbarHeight: DOCK_HEIGHT,
+  getMinimizeTarget: (id) => document.querySelector(`[data-dock-window="${id}"]`)?.getBoundingClientRect() ?? null,
+});
 
 const state = useWindowManager(store);
-const minimized = computed(() => state.value.windows.filter((w) => w.isMinimized));
+const taskbar = computed(() => state.value.windows.filter((w) => w.kind !== "dialog" && !w.isClosing));
 
 let n = 0;
 function open() {
@@ -84,13 +87,21 @@ function openHeavy() {
 }
 
 function openAbout() {
-  store.openWindow("about", { title: "About Prism", width: 480, height: 600 });
+  const width = Math.min(560, window.innerWidth - 32);
+  const height = Math.min(710, window.innerHeight - DOCK_HEIGHT - 16);
+  store.openWindow("about", { title: "About Prism", width, height, x: Math.round((window.innerWidth - width) / 2), y: Math.max(8, Math.round((window.innerHeight - DOCK_HEIGHT - height) / 2)) });
 }
 
 const appearance = ref<"redmond" | "cupertino">("redmond");
 const looks = [
   { id: "redmond", label: "Redmond" },
   { id: "cupertino", label: "Cupertino" },
+] as const;
+
+const motion = ref<"standard" | "playful">("standard");
+const motions = [
+  { id: "standard", label: "Standard" },
+  { id: "playful", label: "Playful" },
 ] as const;
 
 const resolve = (win: { appId: string }) => (win.appId === "about" ? AboutApp : win.appId === "heavy" ? HeavyApp : win.appId === "confirm" ? ConfirmDialog : DemoApp);
@@ -100,7 +111,7 @@ open();
 </script>
 
 <template>
-  <PrismWindowManager :store="store" :appearance="appearance" :resolve-component="resolve" :is-mobile="isMobile" :taskbar-height="DOCK_HEIGHT" />
+  <PrismWindowManager :store="store" :appearance="appearance" :motion="motion" :resolve-component="resolve" :is-mobile="isMobile" :taskbar-height="DOCK_HEIGHT" />
 
   <nav class="demo-bar" aria-label="Demo">
     <div class="demo-brand">
@@ -116,9 +127,14 @@ open();
         {{ look.label }}
       </button>
     </div>
-    <template v-if="minimized.length">
+    <div class="demo-seg" role="group" aria-label="Window motion">
+      <button v-for="m in motions" :key="m.id" :aria-pressed="motion === m.id" @click="motion = m.id">
+        {{ m.label }}
+      </button>
+    </div>
+    <template v-if="taskbar.length">
       <span class="demo-sep" />
-      <button v-for="win in minimized" :key="win.id" class="demo-dock-item" :title="`Restore ${win.title}`" @click="store.focusWindow(win.id)">
+      <button v-for="win in taskbar" :key="win.id" class="demo-dock-item" :data-dock-window="win.id" :title="win.title" @click="store.toggleMinimizeWindow(win.id)">
         <span>{{ win.title }}</span>
       </button>
     </template>

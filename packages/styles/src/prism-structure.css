@@ -96,6 +96,36 @@
   }
 }
 
+.pwm-window.pwm-minimizing.pwm-minimize-target {
+  transform-origin: 0 0;
+  animation: pwm-minimize-to 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes pwm-minimize-to {
+  50% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: var(--pwm-minimize-to);
+  }
+}
+
+.pwm-window.pwm-restoring.pwm-minimize-target {
+  transform-origin: 0 0;
+  animation: pwm-restore-from 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pwm-restore-from {
+  from {
+    opacity: 0;
+    transform: var(--pwm-minimize-to);
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* A dialog fades; a window flies. 200ms either way, matching the store. */
 .pwm-window.pwm-dialog.pwm-opening {
   animation: pwm-dialog-in 0.2s ease-out;
@@ -118,8 +148,11 @@
 }
 
 /* Excludes the exit states, or two clocks drive the same window. */
-.pwm-window:not(.pwm-dragging):not(.pwm-resizing):not(.pwm-closing):not(.pwm-minimizing) {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.pwm-window:not(.pwm-dragging):not(.pwm-resizing):not(.pwm-closing):not(.pwm-minimizing):not(.pwm-minimize-target) {
+  transition:
+    all 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0s,
+    transform-origin 0s;
 }
 
 .pwm-window.pwm-dragging,
@@ -288,12 +321,6 @@
   opacity: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pwm-window.pwm-cupertino .pwm-window-control > * {
-    transition: none;
-  }
-}
-
 .pwm-window-title {
   flex: 1;
   min-width: 0;
@@ -402,12 +429,6 @@
 @keyframes pwm-dialog-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pwm-dialog-spinner {
-    animation: none;
   }
 }
 
@@ -572,6 +593,31 @@
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
+.pwm-snap-preview.pwm-snap-top {
+  left: 0;
+  width: 100%;
+  border-radius: 0;
+}
+.pwm-snap-preview.pwm-snap-top-left,
+.pwm-snap-preview.pwm-snap-bottom-left {
+  left: 0;
+}
+.pwm-snap-preview.pwm-snap-top-right,
+.pwm-snap-preview.pwm-snap-bottom-right {
+  right: 0;
+}
+.pwm-snap-preview.pwm-snap-top-left {
+  border-top-left-radius: 0;
+}
+.pwm-snap-preview.pwm-snap-top-right {
+  border-top-right-radius: 0;
+}
+.pwm-snap-preview.pwm-snap-bottom-left {
+  border-bottom-left-radius: 0;
+}
+.pwm-snap-preview.pwm-snap-bottom-right {
+  border-bottom-right-radius: 0;
+}
 
 @media (max-width: 768px) {
   .pwm-window-header {
@@ -588,29 +634,5 @@
   }
   .pwm-window-title {
     font-size: 0.9375rem;
-  }
-}
-
-/* Respect users who ask for reduced motion: no entrance animations. */
-@media (prefers-reduced-motion: reduce) {
-  .pwm-window,
-  .pwm-window.pwm-opening,
-  .pwm-window.pwm-restoring,
-  .pwm-window.pwm-closing,
-  .pwm-window.pwm-minimizing,
-  .pwm-window.pwm-dialog.pwm-opening,
-  .pwm-window.pwm-dialog.pwm-closing,
-  .pwm-scrim,
-  .pwm-scrim.pwm-scrim-closing,
-  .pwm-snap-preview {
-    animation: none;
-  }
-  .pwm-window.pwm-unsnapping,
-  .pwm-window.pwm-unsnapping .pwm-window-body {
-    animation: none;
-  }
-  /* The arc stops mid-turn rather than vanishing: */
-  .pwm-loading-icon {
-    animation: none;
   }
 }

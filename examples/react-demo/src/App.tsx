@@ -88,8 +88,21 @@ const LOOKS: { id: Appearance; label: string }[] = [
   { id: "cupertino", label: "Cupertino" },
 ];
 
+type PrismMotion = "standard" | "playful";
+const MOTIONS: { id: PrismMotion; label: string }[] = [
+  { id: "standard", label: "Standard" },
+  { id: "playful", label: "Playful" },
+];
+
 export function App() {
-  const store = useMemo(() => createWindowManager({ taskbarHeight: DOCK_HEIGHT }), []);
+  const store = useMemo(
+    () =>
+      createWindowManager({
+        taskbarHeight: DOCK_HEIGHT,
+        getMinimizeTarget: (id) => document.querySelector(`[data-dock-window="${id}"]`)?.getBoundingClientRect() ?? null,
+      }),
+    [],
+  );
 
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 768px)").matches);
   useEffect(() => {
@@ -101,7 +114,7 @@ export function App() {
   }, []);
 
   const state = useWindowManager(store);
-  const minimized = state.windows.filter((w) => w.isMinimized);
+  const taskbar = state.windows.filter((w) => w.kind !== "dialog" && !w.isClosing);
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -119,6 +132,7 @@ export function App() {
   };
 
   const [appearance, setAppearance] = useState<Appearance>("redmond");
+  const [motion, setMotion] = useState<PrismMotion>("standard");
 
   const resolve = (win: { appId: string }) => (win.appId === "about" ? AboutApp : win.appId === "heavy" ? HeavyApp : win.appId === "confirm" ? (props: Record<string, unknown>) => <ConfirmDialog {...props} onPick={(dialogId, value) => store.resolveDialog(dialogId, value)} /> : (props: Record<string, unknown>) => <DemoApp {...props} answer={answers[(props as { _windowId?: string })._windowId ?? ""]} onAsk={ask} />);
 
@@ -145,7 +159,9 @@ export function App() {
   };
 
   const openAbout = () => {
-    store.openWindow("about", { title: "About Prism", width: 480, height: 600 });
+    const width = Math.min(560, window.innerWidth - 32);
+    const height = Math.min(710, window.innerHeight - DOCK_HEIGHT - 16);
+    store.openWindow("about", { title: "About Prism", width, height, x: Math.round((window.innerWidth - width) / 2), y: Math.max(8, Math.round((window.innerHeight - DOCK_HEIGHT - height) / 2)) });
   };
 
   useMemo(() => {
@@ -155,7 +171,7 @@ export function App() {
 
   return (
     <>
-      <PrismWindowManager store={store} appearance={appearance} resolveComponent={resolve} isMobile={isMobile} taskbarHeight={DOCK_HEIGHT} />
+      <PrismWindowManager store={store} appearance={appearance} motion={motion} resolveComponent={resolve} isMobile={isMobile} taskbarHeight={DOCK_HEIGHT} />
 
       <nav className="demo-bar" aria-label="Demo">
         <div className="demo-brand">
@@ -179,11 +195,18 @@ export function App() {
             </button>
           ))}
         </div>
-        {minimized.length > 0 && (
+        <div className="demo-seg" role="group" aria-label="Window motion">
+          {MOTIONS.map((m) => (
+            <button key={m.id} aria-pressed={motion === m.id} onClick={() => setMotion(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {taskbar.length > 0 && (
           <>
             <span className="demo-sep" />
-            {minimized.map((win) => (
-              <button key={win.id} className="demo-dock-item" title={`Restore ${win.title}`} onClick={() => store.focusWindow(win.id)}>
+            {taskbar.map((win) => (
+              <button key={win.id} className="demo-dock-item" data-dock-window={win.id} title={win.title} onClick={() => store.toggleMinimizeWindow(win.id)}>
                 <span>{win.title}</span>
               </button>
             ))}
