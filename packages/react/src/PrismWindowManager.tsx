@@ -189,7 +189,7 @@ export function PrismWindowManager(props: PrismWindowManagerProps) {
   return (
     <PrismProvider value={context}>
       <div className={cx("pwm-manager", mergedClasses.manager)}>
-        {state.snapPreview && <div className={cx("pwm-snap-preview", `pwm-snap-${state.snapPreview}`, mergedClasses.snapPreview)} style={computeSnapPreviewStyle(state.snapPreview, taskbarHeight)} />}
+        {state.snapPreview && <div className={cx("pwm-snap-preview", `pwm-snap-${state.snapPreview}`, motion === "playful" && "pwm-playful", mergedClasses.snapPreview)} style={computeSnapPreviewStyle(state.snapPreview, taskbarHeight)} />}
         {/* Every window, minimized ones hidden with display:none in
             PrismWindow) so the RAM manager decides when to unmount them. */}
         {grounded.map(renderWindow)}

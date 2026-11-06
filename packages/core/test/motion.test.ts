@@ -80,7 +80,7 @@ describe("WindowMotion", () => {
     expect(pose.rotateY).toBeGreaterThan(1);
     expect(Math.abs(pose.rotateX)).toBeLessThan(0.01);
     expect(pose.rotateZ).toBeLessThanOrEqual(DEFAULT_WINDOW_MOTION.maxTilt * 1.5);
-    expect(pose.rotateY).toBeLessThanOrEqual(DEFAULT_WINDOW_MOTION.maxLean * 1.5);
+    expect(pose.rotateY).toBeLessThanOrEqual(DEFAULT_WINDOW_MOTION.maxTurn * 1.5);
     expect(m.transform).toMatch(/^perspective\(1400px\) rotateX\(-?[\d.]+deg\) rotateY\([\d.]+deg\) rotateZ\([\d.]+deg\) scale\(1\)$/);
   });
 
@@ -165,6 +165,23 @@ describe("WindowMotion", () => {
     expect(m.pose.scale).toBe(1);
   });
 
+  it("scales the bounce by its strength", () => {
+    const peakOf = (strength?: number) => {
+      const m = new WindowMotion();
+      m.bounce(strength);
+      m.step(0);
+      let t = 0;
+      let peak = 1;
+      for (let i = 0; i < 30; i++) {
+        m.step((t += FRAME));
+        peak = Math.max(peak, m.pose.scale);
+      }
+      return peak - 1;
+    };
+    expect(peakOf(0.5)).toBeCloseTo(peakOf() / 2, 3);
+    expect(peakOf(0)).toBe(0);
+  });
+
   it("clamps long frame gaps", () => {
     const m = new WindowMotion();
     m.bounce();
@@ -175,12 +192,13 @@ describe("WindowMotion", () => {
   });
 
   it("accepts a partial config", () => {
-    const m = new WindowMotion({ maxTilt: 0, maxLean: 0, perspective: 800 });
+    const m = new WindowMotion({ maxTilt: 0, maxTurn: 0, perspective: 800 });
     m.dragStart(0, 0);
     m.step(0);
     let x = 0;
     run(m, 0, 10, () => m.dragMove((x += 40), 0));
     expect(m.pose.rotateZ).toBe(0);
+    expect(m.pose.rotateY).toBe(0);
     m.bounce();
     expect(m.transform).toContain("perspective(800px)");
   });

@@ -168,6 +168,12 @@
     pwm-snap-pulse 1.5s ease-in-out infinite;
 }
 
+.pwm-snap-preview.pwm-playful {
+  animation:
+    pwm-snap-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    pwm-snap-pulse 1.5s ease-in-out infinite;
+}
+
 @keyframes pwm-snap-pulse {
   0%,
   100% {

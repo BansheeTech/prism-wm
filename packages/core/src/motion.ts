@@ -34,7 +34,7 @@ export interface SpringState {
   velocity: number;
 }
 
-export const PWM_WOBBLE_SPRING: SpringConfig = { stiffness: 600, damping: 18 };
+export const PWM_WOBBLE_SPRING: SpringConfig = { stiffness: 600, damping: 26 };
 export const PWM_BOUNCE_SPRING: SpringConfig = { stiffness: 700, damping: 16 };
 
 const MAX_SUBSTEP_S = 0.004;
@@ -55,6 +55,7 @@ export function stepSpring(state: SpringState, target: number, config: SpringCon
 export interface WindowMotionConfig {
   maxTilt: number;
   maxLean: number;
+  maxTurn: number;
   tiltPerVelocity: number;
   leanPerVelocity: number;
   velocitySmoothingMs: number;
@@ -65,8 +66,9 @@ export interface WindowMotionConfig {
 }
 
 export const DEFAULT_WINDOW_MOTION: WindowMotionConfig = {
-  maxTilt: 2.5,
+  maxTilt: 1.625,
   maxLean: 5,
+  maxTurn: 3.25,
   tiltPerVelocity: 1.5,
   leanPerVelocity: 3,
   velocitySmoothingMs: 45,
@@ -139,8 +141,8 @@ export class WindowMotion {
     this.pendingDy = 0;
   }
 
-  bounce(): void {
-    this.scale = { value: this.scale.value, velocity: this.scale.velocity + this.config.bounceVelocity };
+  bounce(strength: number = 1): void {
+    this.scale = { value: this.scale.value, velocity: this.scale.velocity + this.config.bounceVelocity * strength };
   }
 
   get isDragging(): boolean {
@@ -180,7 +182,7 @@ export class WindowMotion {
 
       const seconds = dt / 1000;
       this.rotateZ = stepSpring(this.rotateZ, clamp(this.vx * c.tiltPerVelocity, c.maxTilt), c.wobbleSpring, seconds);
-      this.rotateY = stepSpring(this.rotateY, clamp(this.vx * c.leanPerVelocity, c.maxLean), c.wobbleSpring, seconds);
+      this.rotateY = stepSpring(this.rotateY, clamp(this.vx * c.leanPerVelocity, c.maxTurn), c.wobbleSpring, seconds);
       this.rotateX = stepSpring(this.rotateX, clamp(-this.vy * c.leanPerVelocity, c.maxLean), c.wobbleSpring, seconds);
       this.scale = stepSpring(this.scale, 1, c.bounceSpring, seconds);
     }

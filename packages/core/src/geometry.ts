@@ -29,6 +29,8 @@
 import type { SnapSide, Viewport } from "./types.js";
 
 export const SNAP_EDGE_THRESHOLD = 20;
+
+export const SNAP_VERTICAL_THRESHOLD = 2;
 export const DEFAULT_MIN_WIDTH = 400;
 export const DEFAULT_MIN_HEIGHT = 300;
 
@@ -89,11 +91,11 @@ export function computeUnsnapFlip(from: Bounds, to: Bounds): UnsnapFlip | null {
 export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 // Which screen edge the cursor is hovering, if any, for the snap preview.
-export function detectSnapEdge(cursorX: number, cursorY: number, viewport: Viewport, taskbarHeight: number = 0, threshold: number = SNAP_EDGE_THRESHOLD): SnapSide {
+export function detectSnapEdge(cursorX: number, cursorY: number, viewport: Viewport, taskbarHeight: number = 0, threshold: number = SNAP_EDGE_THRESHOLD, verticalThreshold: number = SNAP_VERTICAL_THRESHOLD): SnapSide {
   const left = cursorX <= threshold;
   const right = cursorX >= viewport.width - threshold;
-  const top = cursorY <= threshold;
-  const bottom = cursorY >= viewport.height - taskbarHeight - threshold;
+  const top = cursorY <= verticalThreshold;
+  const bottom = cursorY >= viewport.height - taskbarHeight - verticalThreshold;
   if (top && left) return "top-left";
   if (top && right) return "top-right";
   if (bottom && left) return "bottom-left";

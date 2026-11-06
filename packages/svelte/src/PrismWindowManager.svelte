@@ -158,7 +158,7 @@
 <div class={cx("pwm-manager", merged.manager)}>
   {#if $state.snapPreview}
     {@const preview = computeSnapPreviewStyle($state.snapPreview, taskbarHeight)}
-    <div class={cx("pwm-snap-preview", `pwm-snap-${$state.snapPreview}`, merged.snapPreview)} style="top: {preview.top}; height: {preview.height}"></div>
+    <div class={cx("pwm-snap-preview", `pwm-snap-${$state.snapPreview}`, effectiveMotion === "playful" && "pwm-playful", merged.snapPreview)} style="top: {preview.top}; height: {preview.height}"></div>
   {/if}
 
   <!-- Every window, minimized ones hidden, so the RAM manager decides on unmount. -->

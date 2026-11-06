@@ -422,6 +422,13 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
     };
     const up = () => {
       setResizing(false);
+      const now = ctx.store.getWindowById(win.id);
+      if (ctx.motion === "playful" && now && (now.width !== initialWidth || now.height !== initialHeight)) {
+        motionModel.current ??= new WindowMotion();
+        motionOrigin.current = "50% 50%";
+        motionModel.current.bounce(0.5);
+        wakeMotion();
+      }
       releasePointer(handle, e.pointerId);
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", up);
@@ -479,7 +486,7 @@ export function PrismWindow({ window: win, isActive, isBlocked = false }: PrismW
   // Spread rather than a literal attribute:
   const inertProps = isBlocked ? { inert: INERT } : {};
 
-  const className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", ctx.isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", isClosing && "pwm-closing", unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", `pwm-${ctx.appearance}`, cls.window, isActive ? cls.windowActive : cls.windowInactive);
+  const className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", ctx.isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", isClosing && "pwm-closing", unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", ctx.motion === "playful" && "pwm-playful", `pwm-${ctx.appearance}`, cls.window, isActive ? cls.windowActive : cls.windowInactive);
 
   return (
     <div

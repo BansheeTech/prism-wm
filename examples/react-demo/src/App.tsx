@@ -132,7 +132,7 @@ export function App() {
   };
 
   const [appearance, setAppearance] = useState<Appearance>("redmond");
-  const [motion, setMotion] = useState<PrismMotion>("standard");
+  const [motion, setMotion] = useState<PrismMotion>("playful");
 
   const resolve = (win: { appId: string }) => (win.appId === "about" ? AboutApp : win.appId === "heavy" ? HeavyApp : win.appId === "confirm" ? (props: Record<string, unknown>) => <ConfirmDialog {...props} onPick={(dialogId, value) => store.resolveDialog(dialogId, value)} /> : (props: Record<string, unknown>) => <DemoApp {...props} answer={answers[(props as { _windowId?: string })._windowId ?? ""]} onAsk={ask} />);
 

@@ -45,31 +45,41 @@ describe("detectSnapEdge", () => {
     expect(detectSnapEdge(500, 400, vp)).toBeNull();
     expect(detectSnapEdge(500, 21, vp)).toBeNull();
   });
-  it("honours a custom threshold", () => {
+  it("honours custom thresholds", () => {
     expect(detectSnapEdge(30, 400, vp, 0, 40)).toBe("left");
     expect(detectSnapEdge(30, 400, vp, 0, 20)).toBeNull();
-    expect(detectSnapEdge(500, 30, vp, 0, 40)).toBe("top");
+    expect(detectSnapEdge(500, 30, vp, 0, 20, 40)).toBe("top");
+    expect(detectSnapEdge(500, 30, vp, 0, 40)).toBeNull();
   });
-  it("maximizes on the top edge", () => {
+  it("maximizes only when the cursor reaches the top edge", () => {
     expect(detectSnapEdge(500, 0, vp)).toBe("top");
-    expect(detectSnapEdge(500, 20, vp)).toBe("top");
+    expect(detectSnapEdge(500, 2, vp)).toBe("top");
+    expect(detectSnapEdge(500, -40, vp)).toBe("top");
     expect(detectSnapEdge(21, 0, vp)).toBe("top");
     expect(detectSnapEdge(979, 0, vp)).toBe("top");
+    expect(detectSnapEdge(500, 3, vp)).toBeNull();
   });
-  it("snaps to the top corners when both axes are within threshold", () => {
+  it("keeps a half snap for a title bar grabbed near the top of a snapped window", () => {
+    for (const y of [6, 10, 13, 20, 27]) {
+      expect(detectSnapEdge(0, y, vp)).toBe("left");
+      expect(detectSnapEdge(1000, y, vp)).toBe("right");
+      expect(detectSnapEdge(500, y, vp)).toBeNull();
+    }
+  });
+  it("snaps to the top corners when the cursor reaches the top edge at a side", () => {
     expect(detectSnapEdge(0, 0, vp)).toBe("top-left");
-    expect(detectSnapEdge(20, 20, vp)).toBe("top-left");
+    expect(detectSnapEdge(20, 2, vp)).toBe("top-left");
     expect(detectSnapEdge(1000, 0, vp)).toBe("top-right");
-    expect(detectSnapEdge(980, 20, vp)).toBe("top-right");
-    expect(detectSnapEdge(20, 21, vp)).toBe("left");
+    expect(detectSnapEdge(980, -10, vp)).toBe("top-right");
+    expect(detectSnapEdge(20, 3, vp)).toBe("left");
   });
-  it("snaps to the bottom corners above the taskbar", () => {
+  it("snaps to the bottom corners at the taskbar", () => {
     expect(detectSnapEdge(0, 800, vp)).toBe("bottom-left");
-    expect(detectSnapEdge(1000, 780, vp)).toBe("bottom-right");
-    expect(detectSnapEdge(0, 779, vp)).toBe("left");
-    expect(detectSnapEdge(0, 732, vp, 48)).toBe("bottom-left");
+    expect(detectSnapEdge(1000, 798, vp)).toBe("bottom-right");
+    expect(detectSnapEdge(0, 797, vp)).toBe("left");
+    expect(detectSnapEdge(0, 750, vp, 48)).toBe("bottom-left");
     expect(detectSnapEdge(1000, 790, vp, 48)).toBe("bottom-right");
-    expect(detectSnapEdge(0, 731, vp, 48)).toBe("left");
+    expect(detectSnapEdge(0, 749, vp, 48)).toBe("left");
   });
   it("never snaps to the bottom edge alone", () => {
     expect(detectSnapEdge(500, 800, vp)).toBeNull();

@@ -155,6 +155,13 @@
     transform-origin 0s;
 }
 
+.pwm-window.pwm-closing,
+.pwm-window.pwm-minimizing {
+  transition:
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .pwm-window.pwm-dragging,
 .pwm-window.pwm-resizing {
   transition: none !important;
@@ -203,6 +210,55 @@
   from {
     transform: var(--pwm-unsnap-from-content);
   }
+}
+
+.pwm-window.pwm-playful:not(.pwm-dialog):not(.pwm-dragging):not(.pwm-resizing):not(.pwm-closing):not(.pwm-minimizing):not(.pwm-minimize-target) {
+  transition:
+    all 0.2s cubic-bezier(0.3, 1.25, 0.5, 1),
+    transform 0s,
+    transform-origin 0s;
+}
+
+.pwm-window.pwm-playful.pwm-opening:not(.pwm-dialog),
+.pwm-window.pwm-playful.pwm-restoring:not(.pwm-dialog):not(.pwm-minimize-target) {
+  transform-origin: center;
+  animation: pwm-playful-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pwm-playful-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(24px);
+  }
+}
+
+.pwm-window.pwm-playful.pwm-closing:not(.pwm-dialog),
+.pwm-window.pwm-playful.pwm-minimizing:not(.pwm-minimize-target) {
+  transform-origin: center;
+  animation: pwm-playful-out 0.2s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+}
+
+@keyframes pwm-playful-out {
+  to {
+    opacity: 0;
+    transform: scale(0.85) translateY(24px);
+  }
+}
+
+.pwm-window.pwm-playful.pwm-minimizing.pwm-minimize-target {
+  animation: pwm-minimize-to 0.2s cubic-bezier(0.42, -0.1, 0.58, 0.7) forwards;
+}
+
+.pwm-window.pwm-playful.pwm-restoring.pwm-minimize-target {
+  animation: pwm-restore-from 0.2s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+
+.pwm-window.pwm-playful.pwm-unsnapping {
+  animation: pwm-unsnap 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pwm-window.pwm-playful.pwm-unsnapping .pwm-window-body {
+  animation: pwm-unsnap-content 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pwm-window.pwm-maximized {
@@ -582,6 +638,9 @@
     opacity: 0;
     transform: scale(0.9);
   }
+}
+.pwm-snap-preview.pwm-playful {
+  animation: pwm-snap-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .pwm-snap-preview.pwm-snap-left {
   left: 0;

@@ -98,7 +98,7 @@ const looks = [
   { id: "cupertino", label: "Cupertino" },
 ] as const;
 
-const motion = ref<"standard" | "playful">("standard");
+const motion = ref<"standard" | "playful">("playful");
 const motions = [
   { id: "standard", label: "Standard" },
   { id: "playful", label: "Playful" },

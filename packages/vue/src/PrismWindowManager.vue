@@ -26,7 +26,7 @@
 <template>
   <div class="pwm-manager" :class="mergedClasses.manager">
     <!-- Plain v-if / v-for (no <Transition>): -->
-    <div v-if="snapPreview" class="pwm-snap-preview" :class="[`pwm-snap-${snapPreview}`, mergedClasses.snapPreview]" :style="computeSnapPreviewStyle(snapPreview, taskbarHeight)" />
+    <div v-if="snapPreview" class="pwm-snap-preview" :class="[`pwm-snap-${snapPreview}`, { 'pwm-playful': context.motion.value === 'playful' }, mergedClasses.snapPreview]" :style="computeSnapPreviewStyle(snapPreview, taskbarHeight)" />
 
     <PrismWindow v-for="win in grounded" :key="win.id" :window="win" :is-active="win.id === activeWindowId" :is-blocked="blockedOwners.has(win.id)">
       <template #icon="slotProps">

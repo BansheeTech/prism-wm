@@ -43,6 +43,7 @@
         'pwm-restoring': restoring,
         'pwm-minimize-target': (minimizing || restoring) && !!minimizeTo,
         'pwm-opening': opening,
+        'pwm-playful': ctx.motion.value === 'playful',
         [`pwm-${ctx.appearance.value}`]: true,
       },
     ]"
@@ -538,6 +539,12 @@ function onResizeStart(direction: ResizeDirection, e: PointerEvent) {
   };
   const up = () => {
     resizing.value = false;
+    if (ctx.motion.value === "playful" && (props.window.width !== initialWidth || props.window.height !== initialHeight)) {
+      motionModel ??= new WindowMotion();
+      motionOrigin = "50% 50%";
+      motionModel.bounce(0.5);
+      wakeMotion();
+    }
     releasePointer(handle, e.pointerId);
     handle.removeEventListener("pointermove", move);
     handle.removeEventListener("pointerup", up);

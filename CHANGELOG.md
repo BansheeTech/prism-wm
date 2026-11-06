@@ -2,6 +2,25 @@
 
 All packages in this repository are versioned together.
 
+## 1.2.0
+
+### Added
+
+- More `"playful"` motion. With `motion: "playful"`, windows pop in when opened, gather themselves before closing, overshoot slightly when maximized, restored or snapped, accelerate into their taskbar button when minimized and land with a small overshoot when restored, un-snap with a bounce, and settle with a light bounce after a resize. The snap preview pops in. Durations stay at 200 ms; `"standard"` and dialogs are unchanged.
+- `.pwm-playful` on windows and on the snap preview while `motion` is `"playful"`, so hosts can style that mode.
+- `WindowMotion.bounce(strength = 1)` takes a strength.
+- `WindowMotionConfig.maxTurn`: its own limit for the 3D turn (`rotateY`), which used to share `maxLean` with the pitch (`rotateX`).
+- `SNAP_VERTICAL_THRESHOLD` (2 px) and a sixth `verticalThreshold` parameter on `detectSnapEdge`.
+
+### Fixed
+
+- A window that closes or minimizes now fades out its active border and glow over the exit animation, instead of losing them the instant focus moves on.
+- Dragging a snapped window by the upper part of its title bar no longer maximizes it or drops it into a quarter. The top edge and the bottom corners now need the cursor at the edge itself, past `SNAP_VERTICAL_THRESHOLD`; the side edges keep their 20 px.
+
+### Changed
+
+- The playful drag wobble is calmer: the tilt (`maxTilt`) is 1.625° instead of 2.5°, the 3D turn (`maxTurn`) 3.25° instead of 5°, and `PWM_WOBBLE_SPRING` damping is 26 instead of 18, so the window no longer swings past rest when you stop.
+
 ## 1.1.0
 
 ### Breaking

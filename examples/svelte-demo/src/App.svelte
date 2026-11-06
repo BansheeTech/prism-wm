@@ -62,7 +62,7 @@
     { id: "cupertino", label: "Cupertino" },
   ] as const;
 
-  let motion: "standard" | "playful" = "standard";
+  let motion: "standard" | "playful" = "playful";
   const motions = [
     { id: "standard", label: "Standard" },
     { id: "playful", label: "Playful" },

@@ -145,7 +145,7 @@
   });
 
   // ---- Style + class ---------------------------------------------------
-  $: className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", win.isClosing && "pwm-closing", `pwm-${ctx.appearance}`, unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", classes.window, isActive ? classes.windowActive : classes.windowInactive);
+  $: className = cx("pwm-window", isActive && "pwm-active", win.kind === "dialog" && "pwm-dialog", win.isMaximized && "pwm-maximized", isMobile && win.kind !== "dialog" && "pwm-fullscreen-mobile", dragging && "pwm-dragging", resizing && "pwm-resizing", win.isClosing && "pwm-closing", `pwm-${ctx.appearance}`, unsnapping && "pwm-unsnapping", minimizing && "pwm-minimizing", restoring && "pwm-restoring", (minimizing || restoring) && minimizeTo && "pwm-minimize-target", opening && "pwm-opening", motion === "playful" && "pwm-playful", classes.window, isActive ? classes.windowActive : classes.windowInactive);
 
   $: style = buildStyle(win, isMobile, taskbarHeight, minimizing, flip, minimizeTo);
 
@@ -386,6 +386,13 @@
     };
     const up = () => {
       resizing = false;
+      const now = ctx.store.getWindowById(win.id);
+      if (motion === "playful" && now && (now.width !== initialWidth || now.height !== initialHeight)) {
+        motionModel ??= new WindowMotion();
+        motionOrigin = "50% 50%";
+        motionModel.bounce(0.5);
+        wakeMotion();
+      }
       releasePointer(handle, e.pointerId);
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", up);
