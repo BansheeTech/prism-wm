@@ -236,6 +236,34 @@
     }
   }
 
+  function trackGesture(el: Element, pointerId: number, onMove: (ev: PointerEvent) => void, onEnd: () => void) {
+    let ended = false;
+    const end = (ev: PointerEvent) => {
+      if (ended || ev.pointerId !== pointerId) return;
+      ended = true;
+      try {
+        onEnd();
+      } finally {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerup", end, true);
+        window.removeEventListener("pointercancel", end, true);
+        releasePointer(el, pointerId);
+      }
+    };
+    const move = (ev: PointerEvent) => {
+      if (ended || ev.pointerId !== pointerId) return;
+      if (ev.pointerType === "mouse" && ev.buttons === 0) {
+        end(ev);
+        return;
+      }
+      onMove(ev);
+    };
+    capturePointer(el, pointerId);
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", end, true);
+    window.addEventListener("pointercancel", end, true);
+  }
+
   function onHeaderPointerDown(e: PointerEvent) {
     if (isMobile || e.button !== 0) return;
 
@@ -313,32 +341,28 @@
       }
     };
     const up = () => {
-      const snapped = !!ctx.store.snapPreview && !isMobile && caps.maximizable;
-      if (snapped && ctx.store.snapPreview) {
-        ctx.store.snapWindow(win.id, ctx.store.snapPreview, taskbarHeight);
+      try {
+        const snapped = !!ctx.store.snapPreview && !isMobile && caps.maximizable;
+        if (snapped && ctx.store.snapPreview) {
+          ctx.store.snapWindow(win.id, ctx.store.snapPreview, taskbarHeight);
+        }
+        if (motionModel) {
+          motionModel.dragEnd();
+          if (snapped) motionModel.bounce();
+          wakeMotion();
+        }
+      } finally {
+        ctx.store.clearSnapPreview();
+        if (unsnapTimer) {
+          clearTimeout(unsnapTimer);
+          unsnapTimer = null;
+        }
+        unsnapping = false;
+        flip = null;
+        dragging = false;
       }
-      if (motionModel) {
-        motionModel.dragEnd();
-        if (snapped) motionModel.bounce();
-        wakeMotion();
-      }
-      ctx.store.clearSnapPreview();
-      if (unsnapTimer) {
-        clearTimeout(unsnapTimer);
-        unsnapTimer = null;
-      }
-      unsnapping = false;
-      flip = null;
-      dragging = false;
-      releasePointer(strip, e.pointerId);
-      strip.removeEventListener("pointermove", move);
-      strip.removeEventListener("pointerup", up);
-      strip.removeEventListener("pointercancel", up);
     };
-    capturePointer(strip, e.pointerId);
-    strip.addEventListener("pointermove", move);
-    strip.addEventListener("pointerup", up);
-    strip.addEventListener("pointercancel", up);
+    trackGesture(strip, e.pointerId, move, up);
     e.preventDefault();
   }
 
@@ -393,15 +417,8 @@
         motionModel.bounce(0.5);
         wakeMotion();
       }
-      releasePointer(handle, e.pointerId);
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", up);
-      handle.removeEventListener("pointercancel", up);
     };
-    capturePointer(handle, e.pointerId);
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", up);
-    handle.addEventListener("pointercancel", up);
+    trackGesture(handle, e.pointerId, move, up);
     e.preventDefault();
   }
 </script>

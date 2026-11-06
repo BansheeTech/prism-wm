@@ -26,7 +26,7 @@
  * The behavioural contract of WindowManagerStore, with id and viewport
  * injected so the assertions are deterministic.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { WindowManagerStore } from "../src/store.js";
 import type { AppConfig } from "../src/types.js";
 
@@ -316,6 +316,31 @@ describe("snap / unsnap round-trip", () => {
     store.snapWindow(id, "top");
     expect(store.getWindowById(id)!).toMatchObject({ x: 120, y: 130, width: 640, height: 480, isMaximized: true, isSnapped: null });
     expect(store.getPreSnapBounds(id)).toBeUndefined();
+  });
+});
+
+describe("throwing subscribers", () => {
+  const original = (globalThis as { reportError?: unknown }).reportError;
+  afterEach(() => {
+    (globalThis as { reportError?: unknown }).reportError = original;
+  });
+
+  it("keep notifying the others, finish the mutation and report the error", () => {
+    const reported: unknown[] = [];
+    (globalThis as { reportError?: unknown }).reportError = (e: unknown) => reported.push(e);
+    const store = makeStore();
+    const id = store.openWindow("x", { x: 120, y: 130, width: 640, height: 480 });
+    const boom = new Error("subscriber blew up");
+    let after = 0;
+    store.subscribe(() => {
+      throw boom;
+    });
+    store.subscribe(() => after++);
+
+    expect(() => store.snapWindow(id, "right", 48)).not.toThrow();
+    expect(store.getWindowById(id)).toMatchObject({ x: 500, y: 0, width: 500, height: 752, isSnapped: "right" });
+    expect(after).toBe(2);
+    expect(reported).toEqual([boom, boom]);
   });
 });
 

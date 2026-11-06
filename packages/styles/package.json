@@ -1,6 +1,6 @@
 {
   "name": "@prism-wm/styles",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Base stylesheet for the Prism Window Manager. Themeable via --pwm-* CSS custom properties.",
   "license": "AGPL-3.0-or-later",
   "author": "Banshee Technologies S.L.",

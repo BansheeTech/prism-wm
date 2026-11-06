@@ -29,6 +29,17 @@ import type { AppConfig, MinimizeTarget, PrismMotion, OpenDialogOptions, OpenWin
 
 type Listener = () => void;
 
+function reportListenerError(error: unknown): void {
+  const report = (globalThis as { reportError?: (error: unknown) => void }).reportError;
+  if (typeof report === "function") {
+    report(error);
+    return;
+  }
+  setTimeout(() => {
+    throw error;
+  });
+}
+
 function defaultViewport(): Viewport {
   if (typeof window !== "undefined") {
     return { width: window.innerWidth, height: window.innerHeight };
@@ -104,7 +115,13 @@ export class WindowManagerStore {
 
   private set(patch: Partial<WindowManagerState>): void {
     this.state = { ...this.state, ...patch };
-    this.listeners.forEach((l) => l());
+    for (const listener of [...this.listeners]) {
+      try {
+        listener();
+      } catch (error) {
+        reportListenerError(error);
+      }
+    }
   }
 
   private patchWindow(id: string, patch: Partial<WindowState>): boolean {

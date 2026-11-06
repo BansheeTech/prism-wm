@@ -1,6 +1,6 @@
 {
   "name": "@prism-wm/core",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Framework-agnostic core of the Prism Window Manager: state store, geometry, RAM manager. No DOM rendering.",
   "license": "AGPL-3.0-or-later",
   "author": "Banshee Technologies S.L.",

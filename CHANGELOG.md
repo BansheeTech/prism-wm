@@ -2,6 +2,13 @@
 
 All packages in this repository are versioned together.
 
+## 1.2.1
+
+### Fixed
+
+- A window could stay stuck to the pointer after a drag: the snap was not applied, the window kept following the cursor with no button held, and the cursor showed the resize handle of the window underneath. Dragging and resizing now listen on `window` as well as capturing the pointer, so a gesture survives another element taking the capture, and they end on a `pointerup` anywhere or on a mouse move with no button held.
+- A store subscriber that throws no longer stops the others from being notified or leaves a mutation half done. The error is still reported (`reportError`, or rethrown asynchronously), but the store finishes its update, and the drag cleans up after itself regardless.
+
 ## 1.2.0
 
 ### Added
